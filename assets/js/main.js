@@ -11,19 +11,22 @@
         return visibleData;
     }
 
-    var width = 500;
-    var height = 300;
-    var mainAspect = height / width;
-    var rsiHeight = height / 2;
-    var rsiAspect = rsiHeight / width;
-    var navHeight = height / 3;
-    var navAspect = navHeight / width;
-
-    // Set SVGs
+    // Set SVGs & column padding
     var container = d3.select('#chart-example');
+
+    var column = container.selectAll('.col-md-12');
+    // Want to get this from bootstrap, bad workaround.
+    column.style('padding-left', '15px');
+    column.style('padding-right', '15px');
+    var horizontalPadding = parseInt(column[0][0].style.paddingLeft, 10);
+
     var svgMain = container.select('svg.main');
     var svgRSI = container.select('svg.rsi');
     var svgNav = container.select('svg.nav');
+
+    var mainAspect = 0.6;
+    var rsiAspect = 0.3;
+    var navAspect = 0.2;
 
     var data = fc.data.random.financial()(250);
 
@@ -104,7 +107,7 @@
     // Create RSI chart
     var rsiScale = d3.scale.linear()
         .domain([0, 100])
-        .range([rsiHeight, 0]);
+        .range([0.3 * rsiAspect / 1.1, 0]);
     var rsiAlgorithm = fc.indicator.algorithm.relativeStrengthIndex();
 
     var rsi = fc.indicator.renderer.relativeStrengthIndex()
@@ -189,16 +192,16 @@
     }
 
     function resize() {
-        var marginX = 10; // value should be taken from css/html really
-        var screenWidth = window.innerWidth - (marginX * 2);
-        var maxWidth = width;
+        var useableScreenWidth = window.innerWidth - 2 * horizontalPadding;
+        var useableScreenHeight = window.innerHeight;
 
         var targetWidth;
-        if (screenWidth < maxWidth) {
-            targetWidth = screenWidth;
+        if (useableScreenHeight < 1.1 * useableScreenWidth) {
+            targetWidth = useableScreenHeight / 1.1;
         } else {
-            targetWidth = maxWidth;
+            targetWidth = useableScreenWidth;
         }
+
         svgMain.attr('width', targetWidth)
             .attr('height', mainAspect * targetWidth);
         svgRSI.attr('width', targetWidth)
@@ -212,6 +215,5 @@
     d3.select(window).on('resize', resize);
 
     resize();
-    render();
 
 })(d3, fc);
