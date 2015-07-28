@@ -11,24 +11,36 @@
         return visibleData;
     }
 
-    // Set SVGs & column padding
+    var width = 500;
+    var height = 300;
+    var mainAspect = height / width;
+    var rsiHeight = height / 2;
+    var rsiAspect = rsiHeight / width;
+    var navHeight = height / 3;
+    var navAspect = navHeight / width;
+
+    // Set SVGs
     var container = d3.select('#chart-example');
-
-    var column = container.selectAll('.col-md-12');
-    // Want to get this from bootstrap, bad workaround.
-    column.style('padding-left', '15px');
-    column.style('padding-right', '15px');
-    var horizontalPadding = parseInt(column[0][0].style.paddingLeft, 10);
-
     var svgMain = container.select('svg.main');
     var svgRSI = container.select('svg.rsi');
     var svgNav = container.select('svg.nav');
 
-    var mainAspect = 0.6;
-    var rsiAspect = 0.3;
-    var navAspect = 0.2;
+    function noughtify() {
+        var dataLength = data.length;
+
+        for (var i = 0; i < dataLength; i++) {
+            data[i].close -= 100;
+            data[i].high -= 100;
+            data[i].low -= 100;
+            data[i].open -= 100;
+            data[i].movingAverage -= 100;
+        }
+    }
 
     var data = fc.data.random.financial()(250);
+
+    // Makes base index 0, rather than 100.
+    noughtify();
 
     // Create main chart and set how much data is initially viewed
     var timeSeries = fc.chart.linearTimeSeries()
@@ -38,6 +50,12 @@
     var gridlines = fc.annotation.gridline()
         .yTicks(5)
         .xTicks(0);
+
+    /*var lineAnnotation = fc.annotation.line()
+      .xScale(xScale)
+      .yScale(yScale);*/
+
+    //var zeroMarkers = [0];
 
     var candlestick = fc.series.candlestick();
 
@@ -107,7 +125,7 @@
     // Create RSI chart
     var rsiScale = d3.scale.linear()
         .domain([0, 100])
-        .range([0.3 * rsiAspect / 1.1, 0]);
+        .range([rsiHeight, 0]);
     var rsiAlgorithm = fc.indicator.algorithm.relativeStrengthIndex();
 
     var rsi = fc.indicator.renderer.relativeStrengthIndex()
@@ -192,16 +210,16 @@
     }
 
     function resize() {
-        var useableScreenWidth = window.innerWidth - 2 * horizontalPadding;
-        var useableScreenHeight = window.innerHeight;
+        var marginX = 10; // value should be taken from css/html really
+        var screenWidth = window.innerWidth - (marginX * 2);
+        var maxWidth = width;
 
         var targetWidth;
-        if (useableScreenHeight < 1.1 * useableScreenWidth) {
-            targetWidth = useableScreenHeight / 1.1;
+        if (screenWidth < maxWidth) {
+            targetWidth = screenWidth;
         } else {
-            targetWidth = useableScreenWidth;
+            targetWidth = maxWidth;
         }
-
         svgMain.attr('width', targetWidth)
             .attr('height', mainAspect * targetWidth);
         svgRSI.attr('width', targetWidth)
@@ -215,5 +233,6 @@
     d3.select(window).on('resize', resize);
 
     resize();
+    render();
 
 })(d3, fc);
