@@ -11,51 +11,55 @@
         return visibleData;
     }
 
-    var width = 500;
-    var height = 300;
-    var mainAspect = height / width;
-    var rsiHeight = height / 2;
-    var rsiAspect = rsiHeight / width;
-    var navHeight = height / 3;
-    var navAspect = navHeight / width;
-
-    // Set SVGs
+    // Set SVGs & column padding
     var container = d3.select('#chart-example');
+
+    var leftPadding = parseInt(container.select('.col-md-12').style('padding-left'), 10);
+    var rightPadding = parseInt(container.select('.col-md-12').style('padding-right'), 10);
+
     var svgMain = container.select('svg.main');
     var svgRSI = container.select('svg.rsi');
     var svgNav = container.select('svg.nav');
 
-    function noughtify() {
-        var dataLength = data.length;
-
-        for (var i = 0; i < dataLength; i++) {
-            data[i].close -= 100;
-            data[i].high -= 100;
-            data[i].low -= 100;
-            data[i].open -= 100;
-            data[i].movingAverage -= 100;
-        }
-    }
+    var mainAspect = 0.6;
+    var rsiAspect = 0.3;
+    var navAspect = 0.2;
+    var heightWidthAspect = mainAspect + rsiAspect + navAspect;
 
     var data = fc.data.random.financial()(250);
 
-    // Makes base index 0, rather than 100.
-    noughtify();
+    // Using golden ratio to make initial display area rectangle into the golden rectangle
+    var goldenRatio = 1.618;
+
+    var standardDateDisplay = [data[Math.floor((1 - navAspect * goldenRatio) * data.length)].date,
+            data[data.length - 1].date];
+
+    // Set Reset button event
+    function resetToLive() {
+        timeSeries.xDomain(standardDateDisplay);
+        render();
+    }
+
+    container.select('#reset-button').on('click', resetToLive);
 
     // Create main chart and set how much data is initially viewed
     var timeSeries = fc.chart.linearTimeSeries()
-        .xDomain([data[Math.floor(data.length / 2)].date, data[Math.floor(data.length * 3 / 4)].date])
+        .xDomain(standardDateDisplay)
         .xTicks(6);
 
     var gridlines = fc.annotation.gridline()
         .yTicks(5)
         .xTicks(0);
 
-    /*var lineAnnotation = fc.annotation.line()
-      .xScale(xScale)
-      .yScale(yScale);*/
+    var startPriceLine = fc.annotation.line()
+        .orient('horizontal')
+        .value(function(d) { return d.open; })
+        .label(function(d) { return 'OPEN'; });
 
-    //var zeroMarkers = [0];
+    var endPriceLine = fc.annotation.line()
+        .orient('horizontal')
+        .value(function(d) { return d.close; })
+        .label(function(d) { return 'CLOSE'; });
 
     var candlestick = fc.series.candlestick();
 
@@ -66,7 +70,18 @@
     var ma = fc.series.line()
         .yValue(function(d) { return d.movingAverage; });
 
-    var multi = fc.series.multi().series([gridlines, candlestick, ma]);
+    var multi = fc.series.multi()
+        .series([gridlines, candlestick, ma, startPriceLine, endPriceLine])
+        .mapping(function(series) {
+            switch (series) {
+                case startPriceLine:
+                    return [data[0]];
+                case endPriceLine:
+                    return [data[data.length - 1]];
+                default:
+                    return data;
+            }
+        });
 
     function zoomCall(zoom, data, scale) {
         return function() {
@@ -124,8 +139,8 @@
 
     // Create RSI chart
     var rsiScale = d3.scale.linear()
-        .domain([0, 100])
-        .range([rsiHeight, 0]);
+        .domain([0, 100]);
+
     var rsiAlgorithm = fc.indicator.algorithm.relativeStrengthIndex();
 
     var rsi = fc.indicator.renderer.relativeStrengthIndex()
@@ -210,16 +225,18 @@
     }
 
     function resize() {
-        var marginX = 10; // value should be taken from css/html really
-        var screenWidth = window.innerWidth - (marginX * 2);
-        var maxWidth = width;
+        var resetRowHeight = parseInt(container.select('#reset-row').style('height'), 10);
+
+        var useableScreenWidth = window.innerWidth - (leftPadding + rightPadding);
+        var useableScreenHeight = window.innerHeight - resetRowHeight;
 
         var targetWidth;
-        if (screenWidth < maxWidth) {
-            targetWidth = screenWidth;
+        if (useableScreenHeight < heightWidthAspect * useableScreenWidth) {
+            targetWidth = useableScreenHeight / heightWidthAspect;
         } else {
-            targetWidth = maxWidth;
+            targetWidth = useableScreenWidth;
         }
+
         svgMain.attr('width', targetWidth)
             .attr('height', mainAspect * targetWidth);
         svgRSI.attr('width', targetWidth)
@@ -233,6 +250,5 @@
     d3.select(window).on('resize', resize);
 
     resize();
-    render();
 
 })(d3, fc);
