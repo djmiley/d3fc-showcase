@@ -7,41 +7,67 @@
     <meta name="description" content="A cross-platform financial charting application to showcase the functionality of d3fc components">
     <title>d3fc Showcase</title>
 
-    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/d3fc.css">
-    <link rel="stylesheet" type="text/css" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 
-    <script src="assets/js/d3.js"></script> 
+    <script src="assets/js/d3.js"></script>
     <script src="assets/js/Layout.js"></script>
     <script src="assets/js/d3fc.js"></script>
 
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="assets/js/jquery.min.js"></script>
     <script src="assets/js/bootstrap.min.js"></script>
   </head>
   <body>
-    <div class="container" id="chart-example">
-      <div class="row" id="reset-row">
-        <div class="col-md-12">
-          <button type="button" id="reset-button">Reset</button>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-md-12">
-          <svg class="main"></svg>
-        </div>
-      </div>
-      <div class="row"> 
-        <div class="col-md-12">
-          <svg class="rsi"></svg>
-        </div>
-      </div>
-        <div class="row"> 
-          <div class="col-md-12">
-            <svg class="nav"></svg>
+
+    <div class="container" id="app-container">
+
+      <div class="row row-offcanvas-right" id="head-row">
+        <div class="col-xs-12 col-sm-12 col-md-9">
+          <div class="pull-right">
+            <div id="reset-button">
+              <button class="btn btn-default" type="button">Reset</button>
+            </div>
+            <div id="toggle-button">
+              <button class="btn btn-default visible-xs visible-sm" type="button">Toggle</button>
+            </div>
           </div>
         </div>
+        <div class="col-xs-6 col-sm-6 col-md-3 sidebar-offcanvas">
+        </div>
       </div>
+      <div class="row row-offcanvas-right" id="primary-row">
+        <div class="col-xs-12 col-sm-12 col-md-9">
+          <svg class="chart primary"></svg>
+        </div>
+        <div class="col-xs-6 col-sm-6 col-md-3 sidebar-offcanvas menu">
+          <select id="type-selection" selected="type" class="form-control">
+            <option value="generated">Data generator</option>
+            <option value="bitcoin">Bitcoin data</option>
+          </select>
+          <div id="series-buttons" class="btn-group" data-toggle="buttons"></div>
+          <div id="indicator-buttons" class="btn-group" data-toggle="buttons"></div>
+          <div id="secondary-chart-buttons" class="btn-group" data-toggle="buttons"></div>
+        </div>
+      </div>        
+      <div class="row row-offcanvas-right" id="secondary-row">
+        <div class="col-xs-12 col-sm-12 col-md-9">
+          <svg class="chart secondary"></svg>
+        </div>
+        <div class="col-xs-6 col-sm-6 col-md-3 sidebar-offcanvas">
+          RSI
+        </div>
+      </div>
+      <div class="row row-offcanvas-right" id="nav-row">
+        <div class="col-xs-12 col-sm-12 col-md-9">
+          <svg class="chart nav"></svg>
+        </div>
+        <div class="col-xs-6 col-sm-6 col-md-3 sidebar-offcanvas">
+          NAV
+        </div>
+      </div>
+
     </div>
-    <script src="assets/js/main.js"></script>
+
+    <script src="assets/js/app.js"></script>
+    <script src="//localhost:35729/livereload.js"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
     'use strict';
 
     // Needs to be defined like this so that the grunt task can update it
-    var version = '0.2.6';
+    var version = '0.5.7';
 
     // Crazyness to get a strict mode compliant reference to the global object
     var global = null;
@@ -41,34 +41,27 @@
 
     fc.annotation.band = function() {
 
-        // ordinal axes have a rangeExtent function, this adds any padding that
-        // was applied to the range. This functions returns the rangeExtent
-        // if present, or range otherwise
-        function range(scale) {
-            return scale.rangeExtent ? scale.rangeExtent() : scale.range();
-        }
-
         var xScale = d3.time.scale(),
             yScale = d3.scale.linear(),
             x0, x1, y0, y1,
             x0Scaled = function() {
-                return range(xScale)[0];
+                return fc.util.scale.range(xScale)[0];
             },
             x1Scaled = function() {
-                return range(xScale)[1];
+                return fc.util.scale.range(xScale)[1];
             },
             y0Scaled = function() {
-                return range(yScale)[0];
+                return fc.util.scale.range(yScale)[0];
             },
             y1Scaled = function() {
-                return range(yScale)[1];
+                return fc.util.scale.range(yScale)[1];
             },
             decorate = fc.util.fn.noop;
 
         var dataJoin = fc.util.dataJoin()
             .selector('g.annotation')
             .element('g')
-            .attrs({'class': 'annotation'});
+            .attr('class', 'annotation');
 
         var band = function(selection) {
             selection.each(function(data, index) {
@@ -185,12 +178,12 @@
         var xLineDataJoin = fc.util.dataJoin()
             .selector('line.x')
             .element('line')
-            .attrs({'class': 'x gridline'});
+            .attr('class', 'x gridline');
 
         var yLineDataJoin = fc.util.dataJoin()
             .selector('line.y')
             .element('line')
-            .attrs({'class': 'y gridline'});
+            .attr('class', 'y gridline');
 
         var gridlines = function(selection) {
 
@@ -287,7 +280,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.annotation')
             .element('g')
-            .attrs({'class': 'annotation'});
+            .attr('class', 'annotation');
 
         var line = function(selection) {
             selection.each(function(data, index) {
@@ -321,14 +314,7 @@
                         throw new Error('Invalid orientation');
                 }
 
-                // ordinal axes have a rangeExtent function, this adds any padding that
-                // was applied to the range. This functions returns the rangeExtent
-                // if present, or range otherwise
-                function range(scale) {
-                    return scale.rangeExtent ? scale.rangeExtent() : scale.range();
-                }
-
-                var scaleRange = range(crossScale),
+                var scaleRange = fc.util.scale.range(crossScale),
                     // the transform that sets the 'origin' of the annotation
                     containerTransform = function(d) {
                         var transform = valueScale(value(d));
@@ -444,12 +430,12 @@
         var tableDataJoin = fc.util.dataJoin()
             .selector('table.legend')
             .element('table')
-            .attrs({'class': 'legend'});
+            .attr('class', 'legend');
 
         var rowDataJoin = fc.util.dataJoin()
             .selector('tr.row')
             .element('tr')
-            .attrs({'class': 'row'});
+            .attr('class', 'row');
 
         var legend = function(selection) {
             selection.each(function(data, index) {
@@ -514,19 +500,21 @@
     };
 
 })(d3, fc);
+
 (function(d3, fc) {
     'use strict';
 
     fc.chart.linearTimeSeries = function() {
 
         var xAxisHeight = 20;
+        var yAxisWidth = 0;
         var plotArea = fc.series.line();
         var xScale = fc.scale.dateTime();
         var yScale = d3.scale.linear();
-        var xAxis = d3.svg.axis()
+        var xAxis = fc.svg.axis()
             .scale(xScale)
             .orient('bottom');
-        var yAxis = d3.svg.axis()
+        var yAxis = fc.svg.axis()
             .scale(yScale)
             .orient('left');
 
@@ -539,7 +527,7 @@
                 var plotAreaLayout = {
                     position: 'absolute',
                     top: 0,
-                    right: 0,
+                    right: yAxisWidth,
                     bottom: xAxisHeight,
                     left: 0
                 };
@@ -569,7 +557,7 @@
                         position: 'absolute',
                         left: 0,
                         bottom: 0,
-                        right: 0,
+                        right: yAxisWidth,
                         height: xAxisHeight
                     });
 
@@ -582,7 +570,8 @@
                         position: 'absolute',
                         top: 0,
                         right: 0,
-                        bottom: xAxisHeight
+                        bottom: xAxisHeight,
+                        width: yAxisWidth
                     });
 
                 container.layout();
@@ -621,7 +610,8 @@
             xOuterTickSize: 'outerTickSize',
             xTickPadding: 'tickPadding',
             xTickFormat: 'tickFormat',
-            xOrient: 'orient'
+            xOrient: 'orient',
+            xDecorate: 'decorate'
         });
 
         fc.util.rebind(linearTimeSeries, yAxis, {
@@ -632,7 +622,8 @@
             yOuterTickSize: 'outerTickSize',
             yTickPadding: 'tickPadding',
             yTickFormat: 'tickFormat',
-            yOrient: 'orient'
+            yOrient: 'orient',
+            yDecorate: 'decorate'
         });
 
         linearTimeSeries.xScale = function() { return xScale; };
@@ -649,6 +640,13 @@
                 return xAxisHeight;
             }
             xAxisHeight = x;
+            return linearTimeSeries;
+        };
+        linearTimeSeries.yAxisWidth = function(x) {
+            if (!arguments.length) {
+                return yAxisWidth;
+            }
+            yAxisWidth = x;
             return linearTimeSeries;
         };
 
@@ -1677,7 +1675,7 @@
                 .decorate(function(g) {
                     g.enter()
                         .attr('class', function(d, i) {
-                            return ['divergence', 'macd', 'signal'][i];
+                            return 'multi ' + ['divergence', 'macd', 'signal'][i];
                         });
                 });
 
@@ -2207,7 +2205,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('path.area')
             .element('path')
-            .attrs({'class': 'area'});
+            .attr('class', 'area');
 
         var area = function(selection) {
 
@@ -2263,19 +2261,22 @@
             return area;
         };
 
-        return d3.rebind(area, areaData, 'interpolate', 'tension');
+        d3.rebind(area, dataJoin, 'key');
+        d3.rebind(area, areaData, 'interpolate', 'tension');
+
+        return area;
     };
 }(d3, fc));
 
 (function(d3, fc) {
     'use strict';
 
-    // Adapts a d3.svg.axis for use as a series (i.e. accepts xScale/yScale). Only required when
+    // Adapts a fc.svg.axis for use as a series (i.e. accepts xScale/yScale). Only required when
     // you want an axis to appear in the middle of a chart e.g. as part of a cycle plot. Otherwise
-    // prefer using the d3.svg.axis directly.
+    // prefer using the fc.svg.axis directly.
     fc.series.axis = function() {
 
-        var axis = d3.svg.axis(),
+        var axis = fc.svg.axis(),
             baseline = d3.functor(0),
             decorate = fc.util.fn.noop,
             xScale = d3.time.scale(),
@@ -2284,7 +2285,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.axis-adapter')
             .element('g')
-            .attrs({'class': 'axis axis-adapter'});
+            .attr({'class': 'axis axis-adapter'});
 
         var axisAdapter = function(selection) {
 
@@ -2365,7 +2366,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.bar')
             .element('g')
-            .attrs({'class': 'bar'});
+            .attr('class', 'bar');
 
         var xValueScaled = function(d, i) { return xScale(xValue(d, i)); };
 
@@ -2378,7 +2379,7 @@
                         xValue(d, i) !== undefined;
                 });
 
-                var g = dataJoin.key(xValue)(this, filteredData);
+                var g = dataJoin(this, filteredData);
 
                 var width = barWidth(filteredData.map(xValueScaled));
 
@@ -2463,6 +2464,8 @@
             return bar;
         };
 
+        d3.rebind(bar, dataJoin, 'key');
+
         return bar;
     };
 }(d3, fc));
@@ -2485,7 +2488,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.candlestick')
             .element('g')
-            .attrs({'class': 'candlestick'});
+            .attr('class', 'candlestick');
 
         var xValueScaled = function(d, i) { return xScale(xValue(d, i)); };
 
@@ -2493,7 +2496,7 @@
 
             selection.each(function(data, index) {
 
-                var g = dataJoin.key(xValue)(this, data);
+                var g = dataJoin(this, data);
 
                 g.enter()
                     .append('path');
@@ -2596,6 +2599,8 @@
             return candlestick;
         };
 
+        d3.rebind(candlestick, dataJoin, 'key');
+
         return candlestick;
 
     };
@@ -2617,7 +2622,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.cycle')
             .element('g')
-            .attrs({'class': 'cycle'});
+            .attr('class', 'cycle');
 
         var cycle = function(selection) {
 
@@ -2705,6 +2710,8 @@
             return cycle;
         };
 
+        d3.rebind(cycle, dataJoin, 'key');
+
         return cycle;
 
     };
@@ -2735,7 +2742,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('path.line')
             .element('path')
-            .attrs({'class': 'line'});
+            .attr('class', 'line');
 
         var line = function(selection) {
 
@@ -2784,7 +2791,10 @@
             return line;
         };
 
-        return d3.rebind(line, lineData, 'interpolate', 'tension');
+        d3.rebind(line, dataJoin, 'key');
+        d3.rebind(line, lineData, 'interpolate', 'tension');
+
+        return line;
     };
 }(d3, fc));
 
@@ -2810,7 +2820,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.multi')
             .children(true)
-            .attrs({'class': 'multi'})
+            .attr('class', 'multi')
             .element('g')
             .key(function(d, i) {
                 // This function is invoked twice, the first pass is to pull the key
@@ -2916,12 +2926,12 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.ohlc')
             .element('g')
-            .attrs({'class': 'ohlc'});
+            .attr('class', 'ohlc');
 
         var ohlc = function(selection) {
             selection.each(function(data, index) {
 
-                var g = dataJoin.key(xValue)(this, data);
+                var g = dataJoin(this, data);
 
                 g.enter()
                     .append('path');
@@ -3023,6 +3033,8 @@
             return ohlc;
         };
 
+        d3.rebind(ohlc, dataJoin, 'key');
+
         return ohlc;
     };
 }(d3, fc));
@@ -3042,22 +3054,25 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.point')
             .element('g')
-            .attrs({'class': 'point'});
+            .attr('class', 'point');
+
+        var containerTransform = function(d, i) {
+            var x = xScale(xValue(d, i)),
+                y = yScale(yValue(d, i));
+            return 'translate(' + x + ', ' + y + ')';
+        };
 
         var point = function(selection) {
 
             selection.each(function(data, index) {
 
-                var g = dataJoin.key(xValue)(this, data);
+                var g = dataJoin(this, data);
 
                 g.enter()
+                    .attr('transform', containerTransform)
                     .append('circle');
 
-                g.attr('transform', function(d, i) {
-                    var x = xScale(xValue(d, i)),
-                        y = yScale(yValue(d, i));
-                    return 'translate(' + x + ', ' + y + ')';
-                });
+                g.attr('transform', containerTransform);
 
                 g.select('circle')
                     .attr('r', radius);
@@ -3109,6 +3124,8 @@
             radius = x;
             return point;
         };
+
+        d3.rebind(point, dataJoin, 'key');
 
         return point;
     };
@@ -3214,7 +3231,7 @@
                 var dataJoin = fc.util.dataJoin()
                     .selector('g.stacked')
                     .element('g')
-                    .attrs({'class': 'stacked'});
+                    .attr('class', 'stacked');
 
                 dataJoin(container, data)
                     .call(series);
@@ -3232,6 +3249,226 @@
         return stack;
     };
 }(d3, fc));
+
+(function(d3, fc) {
+    'use strict';
+
+    // A drop-in replacement for the D3 axis, supporting the decorate pattern.
+    fc.svg.axis = function() {
+
+        var scale = d3.scale.identity(),
+              decorate = fc.util.fn.noop,
+              orient = 'bottom',
+              tickArguments = [10],
+              tickValues = null,
+              tickFormat = null,
+              outerTickSize = 6,
+              innerTickSize = 6,
+              tickPadding = 3,
+              svgDomainLine = d3.svg.line();
+
+        var dataJoin = fc.util.dataJoin()
+            .selector('g.tick')
+            .element('g')
+            .key(fc.util.fn.identity)
+            .attr('class', 'tick');
+
+        var domainPathDataJoin = fc.util.dataJoin()
+            .selector('path.domain')
+            .element('path')
+            .attr('class', 'domain');
+
+        // returns a function that creates a translation based on
+        // the bound data
+        function containerTranslate(s, trans) {
+            return function(d) {
+                return trans(s(d), 0);
+            };
+        }
+
+        function translate(x, y) {
+            if (isVertical()) {
+                return 'translate(' + y + ', ' + x + ')';
+            } else {
+                return 'translate(' + x + ', ' + y + ')';
+            }
+        }
+
+        function pathTranspose(arr) {
+            if (isVertical()) {
+                return arr.map(function(d) {
+                    return [d[1], d[0]];
+                });
+            } else {
+                return arr;
+            }
+        }
+
+        function isVertical() {
+            return orient === 'left' || orient === 'right';
+        }
+
+        function tryApply(fn, defaultVal) {
+            return scale[fn] ? scale[fn].apply(scale, tickArguments) : defaultVal;
+        }
+
+        var axis = function(selection) {
+
+            selection.each(function(data, index) {
+
+                // Stash a snapshot of the new scale, and retrieve the old snapshot.
+                var scaleOld = this.__chart__ || scale;
+                this.__chart__ = scale.copy();
+
+                var ticksArray = tickValues == null ? tryApply('ticks', scale.domain()) : tickValues;
+                var tickFormatter = tickFormat == null ? tryApply('tickFormat', fc.util.fn.identity) : tickFormat;
+                var sign = orient === 'bottom' || orient === 'right' ? 1 : -1;
+                var container = d3.select(this);
+
+                // add the domain line
+                var range = fc.util.scale.range(scale);
+                var domainPathData = pathTranspose([
+                      [range[0], sign * outerTickSize],
+                      [range[0], 0],
+                      [range[1], 0],
+                      [range[1], sign * outerTickSize]
+                    ]);
+
+                var domainLine = domainPathDataJoin(container, [data]);
+                domainLine
+                    .attr('d', svgDomainLine(domainPathData));
+
+                // datajoin and construct the ticks / label
+                dataJoin.attr({
+                    // set the initial tick position based on the previous scale
+                    // in order to get the correct enter transition - however, for ordinal
+                    // scales the tick will not exist on the old scale, so use the current position
+                    'transform': containerTranslate(fc.util.scale.isOrdinal(scale) ? scale : scaleOld, translate)
+                });
+
+                var g = dataJoin(container, ticksArray);
+
+                // enter
+                g.enter().append('path');
+
+                var labelOffset = sign * (innerTickSize + tickPadding);
+                g.enter()
+                    .append('text')
+                    .attr('transform', translate(0, labelOffset));
+
+                // update
+                g.attr('class', 'tick orient-' + orient);
+
+                g.attr('transform', containerTranslate(scale, translate));
+
+                g.selectAll('path')
+                    .attr('d', function(d) {
+                        return svgDomainLine(pathTranspose([
+                            [0, 0], [0, sign * innerTickSize]
+                        ]));
+                    });
+
+                g.selectAll('text')
+                   .attr('transform', translate(0, labelOffset))
+                   .text(tickFormatter);
+
+                // exit - for non ordinal scales, exit by animating the tick to its new location
+                if (!fc.util.scale.isOrdinal(scale)) {
+                    g.exit()
+                        .attr('transform', containerTranslate(scale, translate));
+                }
+
+                decorate(g, data, index);
+            });
+        };
+
+        axis.scale = function(x) {
+            if (!arguments.length) {
+                return scale;
+            }
+            scale = x;
+            return axis;
+        };
+
+        axis.ticks = function(x) {
+            if (!arguments.length) {
+                return tickArguments;
+            }
+            tickArguments = arguments;
+            return axis;
+        };
+
+        axis.tickValues = function(x) {
+            if (!arguments.length) {
+                return tickValues;
+            }
+            tickValues = x;
+            return axis;
+        };
+
+        axis.tickFormat = function(x) {
+            if (!arguments.length) {
+                return tickFormat;
+            }
+            tickFormat = x;
+            return axis;
+        };
+
+        axis.tickSize = function(x) {
+            var n = arguments.length;
+            if (!n) {
+                return innerTickSize;
+            }
+            innerTickSize = Number(x);
+            outerTickSize = Number(arguments[n - 1]);
+            return axis;
+        };
+
+        axis.innerTickSize = function(x) {
+            if (!arguments.length) {
+                return innerTickSize;
+            }
+            innerTickSize = Number(x);
+            return axis;
+        };
+
+        axis.outerTickSize = function(x) {
+            if (!arguments.length) {
+                return outerTickSize;
+            }
+            outerTickSize = Number(x);
+            return axis;
+        };
+
+        axis.tickPadding = function(x) {
+            if (!arguments.length) {
+                return tickPadding;
+            }
+            tickPadding = x;
+            return axis;
+        };
+
+        axis.orient = function(x) {
+            if (!arguments.length) {
+                return orient;
+            }
+            orient = x;
+            return axis;
+        };
+
+        axis.decorate = function(x) {
+            if (!arguments.length) {
+                return decorate;
+            }
+            decorate = x;
+            return axis;
+        };
+
+        return axis;
+
+    };
+}(d3, fc));
+
 (function(d3, fc) {
     'use strict';
 
@@ -3275,7 +3512,7 @@
                     // Draw the width
                     'h' + barWidth +
                     // Draw to the top
-                    'V' + barHeight +
+                    'v' + barHeight +
                     // Draw the width
                     'h' + -barWidth +
                     // Close the path
@@ -3530,7 +3767,7 @@
             .children(true)
             .selector('g.crosshair')
             .element('g')
-            .attrs({'class': 'crosshair'});
+            .attr('class', 'crosshair');
 
         var horizontalLine = fc.annotation.line()
             .value(y)
@@ -3541,19 +3778,12 @@
             .value(x)
             .label(function(d) { return d.x; });
 
-        // ordinal axes have a rangeExtent function, this adds any padding that
-        // was applied to the range. This functions returns the rangeExtent
-        // if present, or range otherwise
-        function range(scale) {
-            return scale.rangeExtent ? scale.rangeExtent() : scale.range();
-        }
-
         // the line annotations used to render the crosshair are positioned using
         // screen coordinates. This function constructs a suitable scale for rendering
         // these annotations.
         function identityScale(scale) {
             return d3.scale.identity()
-                .range(range(scale));
+                .range(fc.util.scale.range(scale));
         }
 
 
@@ -3575,10 +3805,10 @@
                     .style('visibility', 'hidden');
 
                 container.select('rect')
-                    .attr('x', range(xScale)[0])
-                    .attr('y', range(yScale)[1])
-                    .attr('width', range(xScale)[1])
-                    .attr('height', range(yScale)[0]);
+                    .attr('x', fc.util.scale.range(xScale)[0])
+                    .attr('y', fc.util.scale.range(yScale)[1])
+                    .attr('width', fc.util.scale.range(xScale)[1])
+                    .attr('height', fc.util.scale.range(yScale)[0]);
 
                 var crosshair = dataJoin(container, data);
 
@@ -3701,7 +3931,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.fan')
             .element('g')
-            .attrs({'class': 'fan'});
+            .attr('class', 'fan');
 
         var fan = function(selection) {
 
@@ -3930,7 +4160,7 @@
         var dataJoin = fc.util.dataJoin()
             .selector('g.measure')
             .element('g')
-            .attrs({'class': 'measure'});
+            .attr('class', 'measure');
 
         var measure = function(selection) {
 
@@ -4157,7 +4387,7 @@
         var selector = 'g',
             children = false,
             element = 'g',
-            attrs = {},
+            attr = {},
             key = fc.util.fn.index;
 
         var dataJoin = function(container, data) {
@@ -4184,7 +4414,7 @@
             // when container is a transition, entering elements fade in (from transparent to opaque)
             var enterSelection = updateSelection.enter()
                 .append(element) // <<<--- this is the secret sauce of this whole file
-                .attr(attrs)
+                .attr(attr)
                 .style('opacity', effectivelyZero);
 
             // exit
@@ -4224,18 +4454,18 @@
             element = x;
             return dataJoin;
         };
-        dataJoin.attrs = function(x) {
+        dataJoin.attr = function(x) {
             if (!arguments.length) {
-                return attrs;
+                return attr;
             }
 
             if (arguments.length === 1) {
-                attrs = arguments[0];
+                attr = arguments[0];
             } else if (arguments.length === 2) {
                 var key = arguments[0];
                 var value = arguments[1];
 
-                attrs[key] = value;
+                attr[key] = value;
             }
 
             return dataJoin;
@@ -4379,6 +4609,23 @@
         return target;
     };
 
+}(d3, fc));
+
+(function(d3, fc) {
+    'use strict';
+
+    fc.util.scale = {
+        // ordinal axes have a rangeExtent function, this adds any padding that
+        // was applied to the range. This functions returns the rangeExtent
+        // if present, or range otherwise
+        range: function(scale) {
+            return fc.util.scale.isOrdinal(scale) ? scale.rangeExtent() : scale.range();
+        },
+
+        isOrdinal: function(scale) {
+            return scale.rangeExtent;
+        }
+    };
 }(d3, fc));
 
 (function(d3, fc) {
