@@ -831,9 +831,15 @@
             if (secondaryChart) {
                 secondaryChart.on('viewChange', onViewChanged);
             }
-            sc.util.calculateDimensions(container, secondaryChart);
-            // Timeout required for use of correct height in transitions
-            setTimeout(render, 300);
+
+            // Re-render for smooth transitions
+            var transitionFrames = 300;
+            var timeInterval = Math.ceil(300 / transitionFrames);
+            for (var i = 0; i < transitionFrames; i++) {
+                sc.util.calculateDimensions(container, secondaryChart);
+                // Timeout required for use of correct height in transitions
+                setTimeout(render, timeInterval);
+            }
         });
 
     container.select('.menu')
