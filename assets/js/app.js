@@ -14,6 +14,9 @@
                 coinbase: {}
             }
         },
+        indicator: {
+            renderer: {}
+        },
         menu: {
             generator: {},
             primaryChart: {},
@@ -204,9 +207,6 @@
 
         var multi = fc.series.multi()
             .key(function(series, index) {
-                if (series.isLine) {
-                    return index;
-                }
                 return series;
             });
 
@@ -256,9 +256,9 @@
 
         function updateMultiSeries() {
             if (currentIndicator) {
-                multi.series([gridlines, currentSeries, closeAxisAnnotation, currentIndicator]);
+                multi.series([gridlines, closeAxisAnnotation, currentSeries, currentIndicator]);
             } else {
-                multi.series([gridlines, currentSeries, closeAxisAnnotation]);
+                multi.series([gridlines, closeAxisAnnotation, currentSeries]);
             }
         }
 
@@ -417,16 +417,11 @@
 
         var dispatch = d3.dispatch('primaryChartIndicatorChange');
 
-        var movingAverage = fc.series.line()
-            .decorate(function(select) {
-                select.enter()
-                    .classed('movingAverage', true);
-            })
-            .yValue(function(d) { return d.movingAverage; });
-
         var noIndicator = sc.menu.option('None', 'no-indicator', null);
-        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage', movingAverage);
-        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger', fc.indicator.renderer.bollingerBands());
+        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage',
+            sc.indicator.renderer.movingAverage());
+        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger',
+            fc.indicator.renderer.bollingerBands());
 
         var options = sc.menu.generator.buttonGroup()
             .on('optionChange', function(indicator) {
@@ -505,6 +500,70 @@
 (function(d3, fc) {
     'use strict';
 
+    sc.indicator.renderer.movingAverage = function() {
+
+        var xScale = d3.time.scale();
+        var yScale = d3.scale.linear();
+        var yValue = function(d, i) { return d.close; };
+        var xValue = function(d, i) { return d.date; };
+
+        var averageLine = fc.series.line()
+            .yValue(function(d, i) {
+                return d.movingAverage;
+            });
+
+        function movingAverage(selection) {
+
+            var multi = fc.series.multi()
+                .xScale(xScale)
+                .yScale(yScale)
+                .series([averageLine])
+                .decorate(function(select) {
+                    select.enter().classed('movingAverage', true);
+                });
+
+            averageLine.xValue(xValue);
+
+            selection.call(multi);
+        }
+
+        movingAverage.xScale = function(x) {
+            if (!arguments.length) {
+                return xScale;
+            }
+            xScale = x;
+            return movingAverage;
+        };
+        movingAverage.yScale = function(x) {
+            if (!arguments.length) {
+                return yScale;
+            }
+            yScale = x;
+            return movingAverage;
+        };
+        movingAverage.xValue = function(x) {
+            if (!arguments.length) {
+                return xValue;
+            }
+            xValue = x;
+            return movingAverage;
+        };
+        movingAverage.yValue = function(x) {
+            if (!arguments.length) {
+                return yValue;
+            }
+            yValue = x;
+            return movingAverage;
+        };
+
+        return movingAverage;
+
+    };
+
+})(d3, fc);
+(function(d3, fc) {
+    'use strict';
+
     sc.util.calculateDimensions = function(container, secondaryChartShown) {
         var headRowHeight = parseInt(container.select('#head-row').style('height'), 10) +
             parseInt(container.select('#head-row').style('padding-top'), 10) +
@@ -567,15 +626,29 @@
     'use strict';
 
     sc.util.zoomControl = function(zoom, selection, data, scale) {
+        console.log(zoom);
+        console.log(selection);
+        console.log(data);
+        console.log(scale);
+
         var tx = zoom.translate()[0];
         var ty = zoom.translate()[1];
 
+
+        console.log(tx);
+        console.log(ty);
+
         var xExtent = fc.util.extent(data, ['date']);
+        console.log(xExtent);
         var min = scale(xExtent[0]);
         var max = scale(xExtent[1]);
 
+        console.log(min);
+        console.log(max);
+
         // Don't pan off sides
         var width = parseInt(selection.style('width'), 10);
+        console.log(width);
         if (min > 0) {
             tx -= min;
         } else if (max - width < 0) {
@@ -589,6 +662,9 @@
                 tx = scale(xExtent[0]);
             }
         }
+
+        console.log(tx);
+        console.log(ty);
 
         zoom.translate([tx, ty]);
     };
@@ -831,21 +907,11 @@
             if (secondaryChart) {
                 secondaryChart.on('viewChange', onViewChanged);
             }
-            sc.util.calculateDimensions(container, secondaryChart);
-            // Timeout required for use of correct height in transitions
-            setTimeout(render, 300);
+            resize();
         });
 
     container.select('.menu')
         .call(mainMenu);
-
-    // Set Toggle menu event
-    function toggleMenu() {
-        container.selectAll('.row-offcanvas-right').classed('active',
-            !container.selectAll('.row-offcanvas-right').classed('active'));
-    }
-
-    container.select('#toggle-button').on('click', toggleMenu);
 
     // Set Reset button event
     function resetToLive() {
