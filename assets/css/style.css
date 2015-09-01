@@ -6949,6 +6949,10 @@ path.area {
   fill: transparent;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
 .container {
   height: 100%;
 }
@@ -6982,11 +6986,11 @@ path.area {
 .plot-area .annotation.close path {
   fill: #1a9af9;
 }
-.plot-area .movingAverage > .line {
-  stroke: #ff00ff;
-}
 .plot-area path.line {
   stroke: #1a9af9;
+}
+.plot-area path.line.movingAverage {
+  stroke: #ff00ff;
 }
 .plot-area path.down {
   stroke: #000000;
@@ -7006,4 +7010,27 @@ path.area {
   stroke: #d1d1e0;
   fill-opacity: 0.125;
   shape-rendering: crispEdges;
+}
+.row {
+  position: relative;
+  right: 0;
+  -webkit-transition: all 0.25s ease-out;
+  -o-transition: all 0.25s ease-out;
+  transition: all 0.25s ease-out;
+}
+@media screen and (max-width: 991px) {
+  .row-offcanvas-right.active {
+    right: 50%;
+    /* 6 columns */
+  }
+  .row-offcanvas-right > .sidebar-offcanvas {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: -50%;
+    /* 6 columns */
+  }
+  .row-offcanvas-right.active > .sidebar-offcanvas {
+    display: block;
+  }
 }
