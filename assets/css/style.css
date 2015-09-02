@@ -6967,11 +6967,14 @@ body {
   height: 100%;
   width: 100%;
 }
-.menu #type-selection {
+.sidebar-menu #type-selection {
   min-width: 0;
   width: auto;
   display: inline;
   vertical-align: middle;
+}
+.sidebar-menu [id*="-buttons"] {
+  padding-top: 15px;
 }
 #head-row {
   margin: 0px;
@@ -7014,21 +7017,17 @@ body {
 .row {
   position: relative;
   right: 0;
-  -webkit-transition: all 0.25s ease-out;
-  -o-transition: all 0.25s ease-out;
-  transition: all 0.25s ease-out;
+  transition: right 0.25s ease-out;
 }
 @media screen and (max-width: 991px) {
   .row-offcanvas-right.active {
-    right: 50%;
-    /* 6 columns */
+    right: 33.3%;
   }
   .row-offcanvas-right > .sidebar-offcanvas {
     display: none;
     position: absolute;
     top: 0;
-    right: -50%;
-    /* 6 columns */
+    right: -33.3%;
   }
   .row-offcanvas-right.active > .sidebar-offcanvas {
     display: block;

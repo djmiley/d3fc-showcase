@@ -363,40 +363,25 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.main = function() {
+    sc.menu.head = function() {
 
-        var dispatch = d3.dispatch('primaryChartSeriesChange',
-            'primaryChartIndicatorChange',
-            'secondaryChartChange');
+        var dispatch = d3.dispatch('resetToLive', 'toggleSlideout');
 
-        var primaryChartSeriesOptions = sc.menu.primaryChart.series()
-            .on('primaryChartSeriesChange', function(series) {
-                dispatch.primaryChartSeriesChange(series);
-            });
-
-        var primaryChartIndicatorOptions = sc.menu.primaryChart.indicators()
-            .on('primaryChartIndicatorChange', function(indicator) {
-                dispatch.primaryChartIndicatorChange(indicator);
-            });
-
-        var secondaryChartOptions = sc.menu.secondaryChart.chart()
-            .on('secondaryChartChange', function(chart) {
-                dispatch.secondaryChartChange(chart);
-            });
-
-        var main = function(selection) {
+        var head = function(selection) {
             selection.each(function() {
                 var selection = d3.select(this);
-                selection.select('#series-buttons')
-                    .call(primaryChartSeriesOptions);
-                selection.select('#indicator-buttons')
-                    .call(primaryChartIndicatorOptions);
-                selection.select('#secondary-chart-buttons')
-                    .call(secondaryChartOptions);
+                selection.select('#reset-button')
+                    .on('click', function() {
+                        dispatch.resetToLive();
+                    });
+                selection.select('#toggle-button')
+                    .on('click', function() {
+                        dispatch.toggleSlideout();
+                    });
             });
         };
 
-        return d3.rebind(main, dispatch, 'on');
+        return d3.rebind(head, dispatch, 'on');
     };
 })(d3, fc, sc);
 (function(d3, fc) {
@@ -500,6 +485,45 @@
         };
 
         return d3.rebind(secondaryChartMenu, dispatch, 'on');
+    };
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.menu.side = function() {
+
+        var dispatch = d3.dispatch('primaryChartSeriesChange',
+            'primaryChartIndicatorChange',
+            'secondaryChartChange');
+
+        var primaryChartSeriesOptions = sc.menu.primaryChart.series()
+            .on('primaryChartSeriesChange', function(series) {
+                dispatch.primaryChartSeriesChange(series);
+            });
+
+        var primaryChartIndicatorOptions = sc.menu.primaryChart.indicators()
+            .on('primaryChartIndicatorChange', function(indicator) {
+                dispatch.primaryChartIndicatorChange(indicator);
+            });
+
+        var secondaryChartOptions = sc.menu.secondaryChart.chart()
+            .on('secondaryChartChange', function(chart) {
+                dispatch.secondaryChartChange(chart);
+            });
+
+        var side = function(selection) {
+            selection.each(function() {
+                var selection = d3.select(this);
+                selection.select('#series-buttons')
+                    .call(primaryChartSeriesOptions);
+                selection.select('#indicator-buttons')
+                    .call(primaryChartIndicatorOptions);
+                selection.select('#secondary-chart-buttons')
+                    .call(secondaryChartOptions);
+            });
+        };
+
+        return d3.rebind(side, dispatch, 'on');
     };
 })(d3, fc, sc);
 (function(d3, fc) {
@@ -813,10 +837,29 @@
         render();
     }
 
+    function resetToLive() {
+        var data = dataModel.data;
+
+        var pointsDisplayed = data.length < 50 ? data.length : 50;
+        var standardDateDisplay = [data[data.length - pointsDisplayed].date,
+            data[data.length - 1].date];
+        onViewChanged(standardDateDisplay);
+    }
+
     primaryChart.on('viewChange', onViewChanged);
     navChart.on('viewChange', onViewChanged);
 
-    var mainMenu = sc.menu.main()
+    var headMenu = sc.menu.head()
+        .on('resetToLive', resetToLive)
+        .on('toggleSlideout', function() {
+            container.selectAll('.row-offcanvas-right').classed('active',
+                !container.selectAll('.row-offcanvas-right').classed('active'));
+        });
+
+    container.selectAll('.head-menu')
+        .call(headMenu);
+
+    var sideMenu = sc.menu.side()
         .on('primaryChartSeriesChange', function(series) {
             primaryChart.changeSeries(series.option);
             render();
@@ -831,37 +874,11 @@
             if (secondaryChart) {
                 secondaryChart.on('viewChange', onViewChanged);
             }
-
-            // Re-render for smooth transitions
-            var transitionFrames = 300;
-            var timeInterval = Math.ceil(300 / transitionFrames);
-            for (var i = 0; i < transitionFrames; i++) {
-                sc.util.calculateDimensions(container, secondaryChart);
-                // Timeout required for use of correct height in transitions
-                setTimeout(render, timeInterval);
-            }
+            resize();
         });
 
-    container.select('.menu')
-        .call(mainMenu);
-
-    // Set Toggle menu event
-    function toggleMenu() {
-        container.selectAll('.row-offcanvas-right').classed('active',
-            !container.selectAll('.row-offcanvas-right').classed('active'));
-    }
-
-    container.select('#toggle-button').on('click', toggleMenu);
-
-    // Set Reset button event
-    function resetToLive() {
-        var data = dataModel.data;
-
-        var pointsDisplayed = data.length < 50 ? data.length : 50;
-        var standardDateDisplay = [data[data.length - pointsDisplayed].date,
-            data[data.length - 1].date];
-        onViewChanged(standardDateDisplay);
-    }
+    container.selectAll('.sidebar-menu')
+        .call(sideMenu);
 
     var historicFeed = fc.data.feed.coinbase()
         .granularity(60);
@@ -929,8 +946,6 @@
             }
         });
 
-    container.select('#reset-button').on('click', resetToLive);
-
     function render() {
         svgPrimary.datum(dataModel)
             .call(primaryChart);
@@ -944,17 +959,13 @@
             .call(navChart);
     }
 
-    d3.select(window).on('resize', function() {
-        // Re-render for smooth transitions
-        var transitionFrames = 300;
-        var timeInterval = Math.ceil(300 / transitionFrames);
-        for (var i = 0; i < transitionFrames; i++) {
-            sc.util.calculateDimensions(container, secondaryChart);
-            // Timeout required for use of correct height in transitions
-            setTimeout(render, timeInterval);
-        }
-    });
+    function resize() {
+        sc.util.calculateDimensions(container, secondaryChart);
+        render();
+    }
 
-    sc.util.calculateDimensions(container);
+    d3.select(window).on('resize', resize);
+
+    sc.util.calculateDimensions(container, secondaryChart);
     resetToLive();
 })(d3, fc, sc);
