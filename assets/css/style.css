@@ -6956,9 +6956,6 @@ body {
 .container {
   height: 100%;
 }
-.row {
-  width: 100%;
-}
 [class*="col-"] {
   height: 100%;
 }
@@ -6966,6 +6963,8 @@ body {
   position: absolute;
   height: 100%;
   width: 100%;
+  display: block;
+  margin-left: 0px;
 }
 .sidebar-menu #type-selection {
   min-width: 0;
@@ -6977,16 +6976,21 @@ body {
   padding-top: 15px;
 }
 #head-row {
+  width: 100%;
   margin: 0px;
   padding-top: 10px;
   padding-bottom: 8px;
   background-color: #f0f8ff;
   border-bottom: 2px solid #b0c4de;
 }
-.plot-area .annotation.close text {
+#primary-row {
+  width: 100%;
+}
+.closeLine text {
   fill: #ffffff;
 }
-.plot-area .annotation.close path {
+.closeLine path {
+  stroke: #1a9af9;
   fill: #1a9af9;
 }
 .plot-area path.line {
@@ -7006,8 +7010,19 @@ body {
 .plot-area .average > path.line {
   visibility: hidden;
 }
+#secondary-row {
+  width: 100%;
+}
+#secondary-row > [class*="col-"] {
+  width: calc(100% - 45px);
+}
+#x-axis-row {
+  height: 20px;
+  width: calc(100% - 45px);
+}
 #nav-row {
   height: 100px;
+  width: 100%;
 }
 .nav .extent {
   stroke: #d1d1e0;
