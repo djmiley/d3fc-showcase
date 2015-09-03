@@ -6963,13 +6963,13 @@ body {
   height: 100%;
 }
 .chart {
-  position: absolute;
   height: 100%;
   width: 100%;
   display: block;
   margin-left: 0px;
 }
-.sidebar-menu #type-selection {
+.sidebar-menu #type-selection,
+.sidebar-menu #period-selection {
   min-width: 0;
   width: auto;
   display: inline;
@@ -7010,31 +7010,26 @@ body {
   stroke: #000000;
   fill: #66cc00;
 }
+.plot-area .upper > path.line {
+  stroke: #cc6600;
+}
+.plot-area .lower > path.line {
+  stroke: #66cc00;
+}
 .plot-area .average > path.line {
   visibility: hidden;
 }
-@media screen and (min-width: 991px) {
-  #secondary-row > .col-md-9 {
-    width: calc(75% - 45px);
-  }
+.plot-area .area > path.area {
+  fill: #d3d3d3;
 }
-@media screen and (max-width: 991px) {
-  #secondary-row > .col-xs-12 {
-    width: calc(100% - 45px);
-  }
+#secondary-row > .col-chart {
+  padding-right: calc(15px + 45px);
 }
 #x-axis-row {
   height: 20px;
 }
-@media screen and (min-width: 991px) {
-  #x-axis-row > .col-md-9 {
-    width: calc(75% - 45px);
-  }
-}
-@media screen and (max-width: 991px) {
-  #x-axis-row > .col-xs-12 {
-    width: calc(100% - 45px);
-  }
+#x-axis-row > .col-chart {
+  padding-right: calc(15px + 45px);
 }
 #nav-row {
   height: 100px;

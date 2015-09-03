@@ -211,7 +211,8 @@
                     return index;
                 }
                 return series;
-            });
+            })
+            .series([gridlines, currentSeries, closeLine]);
 
         function primaryChart(selection) {
             var data = selection.datum().data;
@@ -572,7 +573,17 @@
 
         var dispatch = d3.dispatch('primaryChartSeriesChange',
             'primaryChartIndicatorChange',
-            'secondaryChartChange');
+            'secondaryChartChange',
+            'dataTypeChange',
+            'periodChange');
+
+        function setPeriodChangeVisibility(visible) {
+            var visibility = visible ? 'visible' : 'hidden';
+            d3.select('#period-selection')
+                .style('visibility', visibility);
+        }
+
+        setPeriodChangeVisibility(false);
 
         var primaryChartSeriesOptions = sc.menu.primaryChart.series()
             .on('primaryChartSeriesChange', function(series) {
@@ -589,9 +600,30 @@
                 dispatch.secondaryChartChange(chart);
             });
 
+        var dataTypeChangeOptions = function(selection) {
+            selection.on('change', function() {
+                if (this.value === 'bitcoin') {
+                    setPeriodChangeVisibility(true);
+                } else {
+                    setPeriodChangeVisibility(false);
+                }
+                dispatch.dataTypeChange(this.value);
+            });
+        };
+
+        var periodChangeOptions = function(selection) {
+            selection.on('change', function() {
+                dispatch.periodChange(this.value);
+            });
+        };
+
         var side = function(selection) {
             selection.each(function() {
                 var selection = d3.select(this);
+                selection.select('#type-selection')
+                    .call(dataTypeChangeOptions);
+                selection.select('#period-selection')
+                    .call(periodChangeOptions);
                 selection.select('#series-buttons')
                     .call(primaryChartSeriesOptions);
                 selection.select('#indicator-buttons')
@@ -695,6 +727,74 @@
 
         zoom.translate([tx, ty]);
     };
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.data.dataInterface = function() {
+        var historicFeed = fc.data.feed.coinbase();
+        var callbackGenerator = sc.util.callbackInvalidator();
+        var ohlcConverter = sc.data.feed.coinbase.ohlcWebSocketAdaptor();
+        var dataGenerator = fc.data.random.financial();
+        var dispatch = d3.dispatch('messageReceived', 'dataLoaded');
+        var candlesOfData = 200;
+
+        function dataInterface(period) {
+            dataInterface.invalidate();
+            historicFeed.granularity(period);
+            ohlcConverter.period(period);
+            updateHistoricFeedDateRangeToPresent(period);
+            var currentData = [];
+            historicFeed(callbackGenerator(function(err, data) {
+                if (!err) {
+                    currentData = data.reverse();
+                    ohlcConverter(liveCallback(currentData), currentData[currentData.length - 1]);
+                }
+                dispatch.dataLoaded(err, currentData);
+            }));
+        }
+
+        dataInterface.generateData = function() {
+            dataInterface.invalidate();
+            dispatch.dataLoaded(null, dataGenerator(candlesOfData));
+            return dataInterface;
+        };
+
+        dataInterface.invalidate = function() {
+            ohlcConverter.close();
+            callbackGenerator.invalidateCallback();
+            return dataInterface;
+        };
+
+        d3.rebind(dataInterface, dispatch, 'on');
+
+        function updateHistoricFeedDateRangeToPresent(period) {
+            var currDate = new Date();
+            var startDate = d3.time.second.offset(currDate, -candlesOfData * period);
+            historicFeed.start(startDate)
+                .end(currDate);
+        }
+
+        function liveCallback(data) {
+            return function(socketEvent, latestBasket) {
+                if (socketEvent.type === 'message' && latestBasket) {
+                    newBasketReceived(latestBasket, data);
+                }
+                dispatch.messageReceived(socketEvent, data);
+            };
+        }
+
+        function newBasketReceived(basket, data) {
+            if (data[data.length - 1].date.getTime() !== basket.date.getTime()) {
+                data.push(basket);
+            } else {
+                data[data.length - 1] = basket;
+            }
+        }
+
+        return dataInterface;
+    };
+
 })(d3, fc, sc);
 (function(sc) {
     'use strict';
@@ -904,7 +1004,8 @@
     var svgNav = container.select('svg.nav');
 
     var dataModel = {
-        data: fc.data.random.financial()(250),
+        data: [],
+        period: 60 * 60 * 24,
         viewDomain: []
     };
 
@@ -918,13 +1019,15 @@
         render();
     }
 
+    // Set Reset button event
     function resetToLive() {
         var data = dataModel.data;
-
-        var pointsDisplayed = data.length < 50 ? data.length : 50;
-        var standardDateDisplay = [data[data.length - pointsDisplayed].date,
-            data[data.length - 1].date];
-        onViewChanged(standardDateDisplay);
+        var extent = fc.util.extent(data, 'date');
+        var timeExtent = (extent[1].getTime() - extent[0].getTime()) / 1000;
+        var navTimeExtent = timeExtent / 5;
+        var latest = data[data.length - 1].date;
+        var navTimeDomain = [d3.time.second.offset(latest, -navTimeExtent), latest];
+        onViewChanged(navTimeDomain);
     }
 
     primaryChart.on('viewChange', onViewChanged);
@@ -944,87 +1047,63 @@
     var sideMenu = sc.menu.side()
         .on('primaryChartSeriesChange', function(series) {
             primaryChart.changeSeries(series.option);
+            /* Elements are drawn in the order they appear in the HTML - at this minute,
+            D3FC doesn't maintain the ordering of elements, so it's easiest to just
+            remove them and re-write them to the DOM in the correct order. */
+            svgPrimary.selectAll('.multi')
+                .remove();
             render();
         })
         .on('primaryChartIndicatorChange', function(indicator) {
             primaryChart.changeIndicator(indicator.option);
+            svgPrimary.selectAll('.multi')
+                .remove();
             render();
         })
         .on('secondaryChartChange', function(chart) {
             secondaryChart = chart.option;
-            svgSecondary.selectAll('*').remove();
+            svgSecondary.selectAll('*')
+                .remove();
             if (secondaryChart) {
                 secondaryChart.on('viewChange', onViewChanged);
             }
             resize();
+        })
+        .on('dataTypeChange', function(type) {
+            if (type === 'bitcoin') {
+                dataModel.period = container.select('#period-selection').property('value');
+                dataInterface(dataModel.period);
+            } else if (type === 'generated') {
+                dataInterface.generateData();
+                dataModel.period = 60 * 60 * 24;
+            }
+        })
+        .on('periodChange', function(period) {
+            dataModel.period = period;
+            dataInterface(dataModel.period);
         });
 
     container.selectAll('.sidebar-menu')
         .call(sideMenu);
 
-    var historicFeed = fc.data.feed.coinbase()
-        .granularity(60);
-
-    var callbackGenerator = sc.util.callbackInvalidator();
-
-    var ohlcConverter = sc.data.feed.coinbase.ohlcWebSocketAdaptor()
-        .period(60);
-
-    function newBasketReceived(basket) {
-        var data = dataModel.data;
-        if (data[data.length - 1].date.getTime() !== basket.date.getTime()) {
-            data.push(basket);
-        } else {
-            data[data.length - 1] = basket;
-        }
-        render();
-    }
-
-    function liveCallback(socketEvent, latestBasket) {
-        if (socketEvent.type === 'message' && latestBasket) {
-            newBasketReceived(latestBasket);
-        } else if (socketEvent.type === 'error' ||
-            (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
-            console.log('Error loading data from coinbase websocket: ' +
+    var dataInterface = sc.data.dataInterface()
+        .on('messageReceived', function(socketEvent, data) {
+            if (socketEvent.type === 'error' ||
+                (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
+                console.log('Error loading data from coinbase websocket: ' +
                 socketEvent.type + ' ' + socketEvent.code);
-        }
-    }
-
-    function updateDataAndResetChart(newData) {
-        dataModel.data = newData;
-        resetToLive();
-        render();
-    }
-
-    function onHistoricDataLoaded(err, newData) {
-        if (!err) {
-            updateDataAndResetChart(newData.reverse());
-            ohlcConverter(liveCallback, newData[newData.length - 1]);
-        } else { console.log('Error getting historic data: ' + err); }
-    }
-
-    function historicCallback() {
-        return callbackGenerator(onHistoricDataLoaded);
-    }
-
-    function updateHistoricFeedDateRangeToPresent() {
-        var currDate = new Date();
-        var startDate = d3.time.minute.offset(currDate, -200);
-        historicFeed.start(startDate)
-            .end(currDate);
-    }
-
-    d3.select('#type-selection')
-        .on('change', function() {
-            var type = d3.select(this).property('value');
-            if (type === 'bitcoin') {
-                updateHistoricFeedDateRangeToPresent();
-                historicFeed(historicCallback());
-            } else if (type === 'generated') {
-                callbackGenerator.invalidateCallback();
-                ohlcConverter.close();
-                var newData = fc.data.random.financial()(250);
-                updateDataAndResetChart(newData);
+            } else if (socketEvent.type === 'message') {
+                dataModel.data = data;
+            }
+            render();
+        })
+        .on('dataLoaded', function(err, data) {
+            if (err) {
+                console.log('Error getting historic data: ' + err);
+            } else {
+                dataModel.data = data;
+                resetToLive();
+                render();
             }
         });
 
@@ -1051,6 +1130,7 @@
 
     d3.select(window).on('resize', resize);
 
+    dataInterface.generateData();
     sc.util.calculateDimensions(container, secondaryChart);
     resetToLive();
 })(d3, fc, sc);
