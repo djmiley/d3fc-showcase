@@ -6956,6 +6956,9 @@ body {
 .container {
   height: 100%;
 }
+.row {
+  width: 100%;
+}
 [class*="col-"] {
   height: 100%;
 }
@@ -7010,15 +7013,28 @@ body {
 .plot-area .average > path.line {
   visibility: hidden;
 }
-#secondary-row {
-  width: 100%;
+@media screen and (min-width: 991px) {
+  #secondary-row > .col-md-9 {
+    width: calc(75% - 45px);
+  }
 }
-#secondary-row > [class*="col-"] {
-  width: calc(100% - 45px);
+@media screen and (max-width: 991px) {
+  #secondary-row > .col-xs-12 {
+    width: calc(100% - 45px);
+  }
 }
 #x-axis-row {
   height: 20px;
-  width: calc(100% - 45px);
+}
+@media screen and (min-width: 991px) {
+  #x-axis-row > .col-md-9 {
+    width: calc(75% - 45px);
+  }
+}
+@media screen and (max-width: 991px) {
+  #x-axis-row > .col-xs-12 {
+    width: calc(100% - 45px);
+  }
 }
 #nav-row {
   height: 100px;
