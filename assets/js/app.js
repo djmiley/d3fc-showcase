@@ -214,6 +214,14 @@
             })
             .series([gridlines, currentSeries, closeLine]);
 
+        function updateMultiSeries() {
+            if (currentIndicator) {
+                multi.series([gridlines, currentSeries, closeLine, currentIndicator]);
+            } else {
+                multi.series([gridlines, currentSeries, closeLine]);
+            }
+        }
+
         function primaryChart(selection) {
             var data = selection.datum().data;
             var viewDomain = selection.datum().viewDomain;
@@ -274,14 +282,6 @@
         }
 
         d3.rebind(primaryChart, dispatch, 'on');
-
-        function updateMultiSeries() {
-            if (currentIndicator) {
-                multi.series([gridlines, currentSeries, closeLine, currentIndicator]);
-            } else {
-                multi.series([gridlines, currentSeries, closeLine]);
-            }
-        }
 
         primaryChart.yAxisWidth = function() { return timeSeries.yAxisWidth; };
 
@@ -739,6 +739,30 @@
         var dispatch = d3.dispatch('messageReceived', 'dataLoaded');
         var candlesOfData = 200;
 
+        function updateHistoricFeedDateRangeToPresent(period) {
+            var currDate = new Date();
+            var startDate = d3.time.second.offset(currDate, -candlesOfData * period);
+            historicFeed.start(startDate)
+                .end(currDate);
+        }
+
+        function newBasketReceived(basket, data) {
+            if (data[data.length - 1].date.getTime() !== basket.date.getTime()) {
+                data.push(basket);
+            } else {
+                data[data.length - 1] = basket;
+            }
+        }
+
+        function liveCallback(data) {
+            return function(socketEvent, latestBasket) {
+                if (socketEvent.type === 'message' && latestBasket) {
+                    newBasketReceived(latestBasket, data);
+                }
+                dispatch.messageReceived(socketEvent, data);
+            };
+        }
+
         function dataInterface(period) {
             dataInterface.invalidate();
             historicFeed.granularity(period);
@@ -768,30 +792,6 @@
 
         d3.rebind(dataInterface, dispatch, 'on');
 
-        function updateHistoricFeedDateRangeToPresent(period) {
-            var currDate = new Date();
-            var startDate = d3.time.second.offset(currDate, -candlesOfData * period);
-            historicFeed.start(startDate)
-                .end(currDate);
-        }
-
-        function liveCallback(data) {
-            return function(socketEvent, latestBasket) {
-                if (socketEvent.type === 'message' && latestBasket) {
-                    newBasketReceived(latestBasket, data);
-                }
-                dispatch.messageReceived(socketEvent, data);
-            };
-        }
-
-        function newBasketReceived(basket, data) {
-            if (data[data.length - 1].date.getTime() !== basket.date.getTime()) {
-                data.push(basket);
-            } else {
-                data[data.length - 1] = basket;
-            }
-        }
-
         return dataInterface;
     };
 
@@ -805,25 +805,16 @@
         var period = 60 * 60 * 24;
         var liveFeed = sc.data.feed.coinbase.webSocket();
 
-        function ohlcWebSocketAdaptor(cb, initialBasket) {
-            var basket = initialBasket;
-            liveFeed(function(err, datum) {
-                if (datum) {
-                    basket = updateBasket(basket, datum);
-                }
-                cb(err, basket);
-            });
+        function createNewBasket(datum, time) {
+            return {
+                date: time,
+                open: datum.price,
+                close: datum.price,
+                low: datum.price,
+                high: datum.price,
+                volume: datum.volume
+            };
         }
-
-        ohlcWebSocketAdaptor.period = function(x) {
-            if (!arguments.length) {
-                return period;
-            }
-            period = x;
-            return ohlcWebSocketAdaptor;
-        };
-
-        d3.rebind(ohlcWebSocketAdaptor, liveFeed, 'product', 'messageType', 'close');
 
         function updateBasket(basket, datum) {
             if (basket == null) {
@@ -846,16 +837,25 @@
             return basket;
         }
 
-        function createNewBasket(datum, time) {
-            return {
-                date: time,
-                open: datum.price,
-                close: datum.price,
-                low: datum.price,
-                high: datum.price,
-                volume: datum.volume
-            };
+        function ohlcWebSocketAdaptor(cb, initialBasket) {
+            var basket = initialBasket;
+            liveFeed(function(err, datum) {
+                if (datum) {
+                    basket = updateBasket(basket, datum);
+                }
+                cb(err, basket);
+            });
         }
+
+        ohlcWebSocketAdaptor.period = function(x) {
+            if (!arguments.length) {
+                return period;
+            }
+            period = x;
+            return ohlcWebSocketAdaptor;
+        };
+
+        d3.rebind(ohlcWebSocketAdaptor, liveFeed, 'product', 'messageType', 'close');
 
         return ohlcWebSocketAdaptor;
     };
@@ -1014,12 +1014,32 @@
     var xAxis = sc.chart.xAxis();
     var navChart = sc.chart.navChart();
 
+    function render() {
+        svgPrimary.datum(dataModel)
+            .call(primaryChart);
+
+        if (secondaryChart) {
+            svgSecondary.datum(dataModel)
+                .call(secondaryChart);
+        }
+
+        svgXAxis.datum(dataModel)
+            .call(xAxis);
+
+        svgNav.datum(dataModel)
+            .call(navChart);
+    }
+
+    function resize() {
+        sc.util.calculateDimensions(container, secondaryChart);
+        render();
+    }
+
     function onViewChanged(domain) {
         dataModel.viewDomain = [domain[0], domain[1]];
         render();
     }
 
-    // Set Reset button event
     function resetToLive() {
         var data = dataModel.data;
         var extent = fc.util.extent(data, 'date');
@@ -1033,6 +1053,27 @@
     primaryChart.on('viewChange', onViewChanged);
     xAxis.on('viewChange', onViewChanged);
     navChart.on('viewChange', onViewChanged);
+
+    var dataInterface = sc.data.dataInterface()
+        .on('messageReceived', function(socketEvent, data) {
+            if (socketEvent.type === 'error' ||
+                (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
+                console.log('Error loading data from coinbase websocket: ' +
+                socketEvent.type + ' ' + socketEvent.code);
+            } else if (socketEvent.type === 'message') {
+                dataModel.data = data;
+            }
+            render();
+        })
+        .on('dataLoaded', function(err, data) {
+            if (err) {
+                console.log('Error getting historic data: ' + err);
+            } else {
+                dataModel.data = data;
+                resetToLive();
+                render();
+            }
+        });
 
     var headMenu = sc.menu.head()
         .on('resetToLive', resetToLive)
@@ -1085,48 +1126,6 @@
 
     container.selectAll('.sidebar-menu')
         .call(sideMenu);
-
-    var dataInterface = sc.data.dataInterface()
-        .on('messageReceived', function(socketEvent, data) {
-            if (socketEvent.type === 'error' ||
-                (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
-                console.log('Error loading data from coinbase websocket: ' +
-                socketEvent.type + ' ' + socketEvent.code);
-            } else if (socketEvent.type === 'message') {
-                dataModel.data = data;
-            }
-            render();
-        })
-        .on('dataLoaded', function(err, data) {
-            if (err) {
-                console.log('Error getting historic data: ' + err);
-            } else {
-                dataModel.data = data;
-                resetToLive();
-                render();
-            }
-        });
-
-    function render() {
-        svgPrimary.datum(dataModel)
-            .call(primaryChart);
-
-        if (secondaryChart) {
-            svgSecondary.datum(dataModel)
-                .call(secondaryChart);
-        }
-
-        svgXAxis.datum(dataModel)
-            .call(xAxis);
-
-        svgNav.datum(dataModel)
-            .call(navChart);
-    }
-
-    function resize() {
-        sc.util.calculateDimensions(container, secondaryChart);
-        render();
-    }
 
     d3.select(window).on('resize', resize);
 
