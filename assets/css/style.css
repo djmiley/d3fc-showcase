@@ -6949,34 +6949,25 @@ path.area {
   fill: transparent;
 }
 
-html,
-body {
-  overflow-x: hidden;
-}
 .container {
   height: 100%;
-}
-.row {
-  width: 100%;
 }
 [class*="col-"] {
   height: 100%;
 }
 .chart {
+  position: absolute;
   height: 100%;
   width: 100%;
   display: block;
   margin-left: 0px;
 }
-.sidebar-menu #type-selection,
-.sidebar-menu #period-selection {
+.menu #type-selection,
+.menu #period-selection {
   min-width: 0;
   width: auto;
   display: inline;
   vertical-align: middle;
-}
-.sidebar-menu [id*="-buttons"] {
-  padding-top: 15px;
 }
 #head-row {
   width: 100%;
@@ -7022,14 +7013,15 @@ body {
 .plot-area .area > path.area {
   fill: #d3d3d3;
 }
-#secondary-row > .col-chart {
-  padding-right: calc(15px + 45px);
+#secondary-row {
+  width: 100%;
+}
+#secondary-row > [class*="col-"] {
+  width: calc(100% - 45px);
 }
 #x-axis-row {
   height: 20px;
-}
-#x-axis-row > .col-chart {
-  padding-right: calc(15px + 45px);
+  width: calc(100% - 45px);
 }
 #nav-row {
   height: 100px;
@@ -7039,23 +7031,4 @@ body {
   stroke: #d1d1e0;
   fill-opacity: 0.125;
   shape-rendering: crispEdges;
-}
-.row {
-  position: relative;
-  right: 0;
-  transition: right 0.25s ease-out;
-}
-@media screen and (max-width: 991px) {
-  .row-offcanvas-right.active {
-    right: 33.3%;
-  }
-  .row-offcanvas-right > .sidebar-offcanvas {
-    display: none;
-    position: absolute;
-    top: 0;
-    right: -33.3%;
-  }
-  .row-offcanvas-right.active > .sidebar-offcanvas {
-    display: block;
-  }
 }

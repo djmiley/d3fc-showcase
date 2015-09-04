@@ -442,25 +442,71 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.head = function() {
+    sc.menu.main = function() {
 
-        var dispatch = d3.dispatch('resetToLive', 'toggleSlideout');
+        var dispatch = d3.dispatch('primaryChartSeriesChange',
+            'primaryChartIndicatorChange',
+            'secondaryChartChange',
+            'dataTypeChange',
+            'periodChange');
 
-        var head = function(selection) {
-            selection.each(function() {
-                var selection = d3.select(this);
-                selection.select('#reset-button')
-                    .on('click', function() {
-                        dispatch.resetToLive();
-                    });
-                selection.select('#toggle-button')
-                    .on('click', function() {
-                        dispatch.toggleSlideout();
-                    });
+        function setPeriodChangeVisibility(visible) {
+            var visibility = visible ? 'visible' : 'hidden';
+            d3.select('#period-selection')
+                .style('visibility', visibility);
+        }
+
+        setPeriodChangeVisibility(false);
+
+        var primaryChartSeriesOptions = sc.menu.primaryChart.series()
+            .on('primaryChartSeriesChange', function(series) {
+                dispatch.primaryChartSeriesChange(series);
+            });
+
+        var primaryChartIndicatorOptions = sc.menu.primaryChart.indicators()
+            .on('primaryChartIndicatorChange', function(indicator) {
+                dispatch.primaryChartIndicatorChange(indicator);
+            });
+
+        var secondaryChartOptions = sc.menu.secondaryChart.chart()
+            .on('secondaryChartChange', function(chart) {
+                dispatch.secondaryChartChange(chart);
+            });
+
+        var dataTypeChangeOptions = function(selection) {
+            selection.on('change', function() {
+                if (this.value === 'bitcoin') {
+                    setPeriodChangeVisibility(true);
+                } else {
+                    setPeriodChangeVisibility(false);
+                }
+                dispatch.dataTypeChange(this.value);
             });
         };
 
-        return d3.rebind(head, dispatch, 'on');
+        var periodChangeOptions = function(selection) {
+            selection.on('change', function() {
+                dispatch.periodChange(this.value);
+            });
+        };
+
+        var main = function(selection) {
+            selection.each(function() {
+                var selection = d3.select(this);
+                selection.select('#type-selection')
+                    .call(dataTypeChangeOptions);
+                selection.select('#period-selection')
+                    .call(periodChangeOptions);
+                selection.select('#series-buttons')
+                    .call(primaryChartSeriesOptions);
+                selection.select('#indicator-buttons')
+                    .call(primaryChartIndicatorOptions);
+                selection.select('#secondary-chart-buttons')
+                    .call(secondaryChartOptions);
+            });
+        };
+
+        return d3.rebind(main, dispatch, 'on');
     };
 })(d3, fc, sc);
 (function(d3, fc) {
@@ -564,76 +610,6 @@
         };
 
         return d3.rebind(secondaryChartMenu, dispatch, 'on');
-    };
-})(d3, fc, sc);
-(function(d3, fc, sc) {
-    'use strict';
-
-    sc.menu.side = function() {
-
-        var dispatch = d3.dispatch('primaryChartSeriesChange',
-            'primaryChartIndicatorChange',
-            'secondaryChartChange',
-            'dataTypeChange',
-            'periodChange');
-
-        function setPeriodChangeVisibility(visible) {
-            var visibility = visible ? 'visible' : 'hidden';
-            d3.select('#period-selection')
-                .style('visibility', visibility);
-        }
-
-        setPeriodChangeVisibility(false);
-
-        var primaryChartSeriesOptions = sc.menu.primaryChart.series()
-            .on('primaryChartSeriesChange', function(series) {
-                dispatch.primaryChartSeriesChange(series);
-            });
-
-        var primaryChartIndicatorOptions = sc.menu.primaryChart.indicators()
-            .on('primaryChartIndicatorChange', function(indicator) {
-                dispatch.primaryChartIndicatorChange(indicator);
-            });
-
-        var secondaryChartOptions = sc.menu.secondaryChart.chart()
-            .on('secondaryChartChange', function(chart) {
-                dispatch.secondaryChartChange(chart);
-            });
-
-        var dataTypeChangeOptions = function(selection) {
-            selection.on('change', function() {
-                if (this.value === 'bitcoin') {
-                    setPeriodChangeVisibility(true);
-                } else {
-                    setPeriodChangeVisibility(false);
-                }
-                dispatch.dataTypeChange(this.value);
-            });
-        };
-
-        var periodChangeOptions = function(selection) {
-            selection.on('change', function() {
-                dispatch.periodChange(this.value);
-            });
-        };
-
-        var side = function(selection) {
-            selection.each(function() {
-                var selection = d3.select(this);
-                selection.select('#type-selection')
-                    .call(dataTypeChangeOptions);
-                selection.select('#period-selection')
-                    .call(periodChangeOptions);
-                selection.select('#series-buttons')
-                    .call(primaryChartSeriesOptions);
-                selection.select('#indicator-buttons')
-                    .call(primaryChartIndicatorOptions);
-                selection.select('#secondary-chart-buttons')
-                    .call(secondaryChartOptions);
-            });
-        };
-
-        return d3.rebind(side, dispatch, 'on');
     };
 })(d3, fc, sc);
 (function(d3, fc) {
@@ -1075,17 +1051,7 @@
             }
         });
 
-    var headMenu = sc.menu.head()
-        .on('resetToLive', resetToLive)
-        .on('toggleSlideout', function() {
-            container.selectAll('.row-offcanvas-right').classed('active',
-                !container.selectAll('.row-offcanvas-right').classed('active'));
-        });
-
-    container.selectAll('.head-menu')
-        .call(headMenu);
-
-    var sideMenu = sc.menu.side()
+    var mainMenu = sc.menu.main()
         .on('primaryChartSeriesChange', function(series) {
             primaryChart.changeSeries(series.option);
             /* Elements are drawn in the order they appear in the HTML - at this minute,
@@ -1124,8 +1090,10 @@
             dataInterface(dataModel.period);
         });
 
-    container.selectAll('.sidebar-menu')
-        .call(sideMenu);
+    container.select('.menu')
+        .call(mainMenu);
+
+    container.select('#reset-button').on('click', resetToLive);
 
     d3.select(window).on('resize', resize);
 
