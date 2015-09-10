@@ -6949,36 +6949,40 @@ path.area {
   fill: transparent;
 }
 
+html,
+body {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
 .container {
   height: 100%;
+}
+.row {
+  width: 100%;
 }
 [class*="col-"] {
   height: 100%;
 }
 .chart {
-  position: absolute;
   height: 100%;
   width: 100%;
-  display: block;
-  margin-left: 0px;
 }
-.menu #type-selection,
-.menu #period-selection {
+.sidebar-menu #type-selection,
+.sidebar-menu #period-selection {
   min-width: 0;
   width: auto;
   display: inline;
   vertical-align: middle;
 }
+.sidebar-menu [id*="-buttons"] {
+  padding-top: 15px;
+}
 #head-row {
   width: 100%;
-  margin: 0px;
   padding-top: 10px;
   padding-bottom: 8px;
   background-color: #f0f8ff;
   border-bottom: 2px solid #b0c4de;
-}
-#primary-row {
-  width: 100%;
 }
 .closeLine text {
   fill: #ffffff;
@@ -7013,15 +7017,14 @@ path.area {
 .plot-area .area > path.area {
   fill: #d3d3d3;
 }
-#secondary-row {
-  width: 100%;
-}
-#secondary-row > [class*="col-"] {
-  width: calc(100% - 45px);
+#secondary-row > .col-chart {
+  padding-right: calc(15px + 45px);
 }
 #x-axis-row {
   height: 20px;
-  width: calc(100% - 45px);
+}
+#x-axis-row .chart {
+  padding-right: 45px;
 }
 #nav-row {
   height: 100px;
@@ -7031,4 +7034,23 @@ path.area {
   stroke: #d1d1e0;
   fill-opacity: 0.125;
   shape-rendering: crispEdges;
+}
+.row {
+  position: relative;
+  right: 0;
+  transition: right 0.25s ease-out;
+}
+@media screen and (max-width: 991px) {
+  .row-offcanvas-right.active {
+    right: 33.3%;
+  }
+  .row-offcanvas-right > .sidebar-offcanvas {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: -33.3%;
+  }
+  .row-offcanvas-right.active > .sidebar-offcanvas {
+    display: block;
+  }
 }
