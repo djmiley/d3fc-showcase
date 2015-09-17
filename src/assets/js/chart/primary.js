@@ -74,6 +74,8 @@
         var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
         var currentYValueAccessor = function(d) { return d.close; };
         var currentIndicators = [];
+        var currentBollingerBandsWindowSize = 10;
+        var currentMovingAverageWindowSize = 10;
 
         var gridlines = fc.annotation.gridline()
             .yTicks(5)
@@ -115,10 +117,9 @@
         var movingAverage = fc.indicator.algorithm.movingAverage();
         var bollingerAlgorithm = fc.indicator.algorithm.bollingerBands();
 
-        function updateMultiSeries() {
-            var baseChart = [gridlines, currentSeries.option, closeLine];
-            var indicators = currentIndicators.map(function(indicator) { return indicator.option; });
-            multi.series(baseChart.concat(indicators));
+        function updateIndicatorWindowSize() {
+            movingAverage.windowSize(currentMovingAverageWindowSize);
+            bollingerAlgorithm.windowSize(currentBollingerBandsWindowSize);
         }
 
         function updateYValueAccessorUsed() {
@@ -136,11 +137,18 @@
             }
         }
 
+        function updateMultiSeries() {
+            var baseChart = [gridlines, currentSeries.option, closeLine];
+            var indicators = currentIndicators.map(function(indicator) { return indicator.option; });
+            multi.series(baseChart.concat(indicators));
+        }
+
         function primary(selection) {
             var model = selection.datum();
 
             timeSeries.xDomain(model.viewDomain);
 
+            updateIndicatorWindowSize();
             updateYValueAccessorUsed();
             updateMultiSeries();
 
@@ -192,6 +200,16 @@
 
         primary.changeYValueAccessor = function(yValueAccessor) {
             currentYValueAccessor = yValueAccessor.option;
+            return primary;
+        };
+
+        primary.changeBollingerBandsWindowSize = function(bollingerBandsWindowSize) {
+            currentBollingerBandsWindowSize = bollingerBandsWindowSize.option;
+            return primary;
+        };
+
+        primary.changeMovingAverageWindowSize = function(movingAverageWindowSize) {
+            currentMovingAverageWindowSize = movingAverageWindowSize.option;
             return primary;
         };
 

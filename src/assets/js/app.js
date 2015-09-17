@@ -138,6 +138,14 @@
                     primaryChart.toggleIndicator(toggledIndicator);
                     render();
                 })
+                .on('bollingerBandsWindowSizeChange', function(bollingerBandsWindowSize) {
+                    primaryChart.changeBollingerBandsWindowSize(bollingerBandsWindowSize);
+                    render();
+                })
+                .on('movingAverageWindowSizeChange', function(movingAverageWindowSize) {
+                    primaryChart.changeMovingAverageWindowSize(movingAverageWindowSize);
+                    render();
+                })
                 .on('secondaryChartChange', function(toggledChart) {
                     if (secondaryCharts.indexOf(toggledChart.option) !== -1 && !toggledChart.toggled) {
                         secondaryCharts.splice(secondaryCharts.indexOf(toggledChart.option), 1);

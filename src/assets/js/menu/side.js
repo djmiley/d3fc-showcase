@@ -6,6 +6,8 @@
         var dispatch = d3.dispatch('primaryChartSeriesChange',
             'primaryChartYValueAccessorChange',
             'primaryChartIndicatorChange',
+            'bollingerBandsWindowSizeChange',
+            'movingAverageWindowSizeChange',
             'secondaryChartChange');
 
         var primaryChartSeriesOptions = sc.menu.primary.series()
@@ -23,6 +25,16 @@
                 dispatch.primaryChartIndicatorChange(toggledIndicator);
             });
 
+        var bollingerBandsWindowSizeInput = sc.menu.primary.indicator.bollingerBandsWindowSize()
+            .on('bollingerBandsWindowSizeChange', function(bollingerBandsWindowSize) {
+                dispatch.bollingerBandsWindowSizeChange(bollingerBandsWindowSize);
+            });
+
+        var movingAverageWindowSizeInput = sc.menu.primary.indicator.movingAverageWindowSize()
+            .on('movingAverageWindowSizeChange', function(movingAverageWindowSize) {
+                dispatch.movingAverageWindowSizeChange(movingAverageWindowSize);
+            });
+
         var secondaryChartOptions = sc.menu.secondary.chart()
             .on('secondaryChartChange', function(toggledChart) {
                 dispatch.secondaryChartChange(toggledChart);
@@ -37,6 +49,10 @@
                     .call(primaryChartYValueAccessorOptions);
                 selection.select('#indicator-buttons')
                     .call(primaryChartIndicatorOptions);
+                selection.select('#bollinger-bands-window-size-input')
+                    .call(bollingerBandsWindowSizeInput);
+                selection.select('#moving-average-window-size-input')
+                    .call(movingAverageWindowSizeInput);
                 selection.select('#secondary-chart-buttons')
                     .call(secondaryChartOptions);
             });

@@ -18,7 +18,9 @@
         menu: {
             data: {},
             generator: {},
-            primary: {},
+            primary: {
+                indicator: {}
+            },
             secondary: {}
         },
         series: {},
