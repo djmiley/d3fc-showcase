@@ -40,9 +40,22 @@
                     .classed('movingAverage', true);
             })
             .yValue(function(d) { return d.movingAverage; });
+        movingAverage.isLine = true;
 
-        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage', movingAverage);
-        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger', fc.indicator.renderer.bollingerBands());
+        var exponentialMovingAverage = fc.series.line()
+            .decorate(function(select) {
+                select.enter()
+                    .classed('exponentialMovingAverage', true);
+            })
+            .yValue(function(d) { return d.exponentialMovingAverage; });
+        exponentialMovingAverage.isLine = true;
+
+        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage',
+            movingAverage);
+        var exponentialMovingAverageIndicator = sc.menu.option('EMA', 'exponentialMovingAverage',
+            exponentialMovingAverage);
+        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger',
+            fc.indicator.renderer.bollingerBands());
 
         var primaryChartIndicatorToggle = sc.menu.group()
             .formOptionListFromCollection([movingAverageIndicator, bollingerIndicator], fc.util.fn.identity)

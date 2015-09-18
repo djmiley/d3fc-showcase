@@ -47,6 +47,7 @@
         if (currentIndicators.length) {
             var indicators = currentIndicators.map(function(indicator) { return indicator.valueString; });
             var movingAverageShown = (indicators.indexOf('movingAverage') !== -1);
+            var exponentialMovingAverageShown = (indicators.indexOf('exponentialMovingAverage') !== -1);
             var bollingerBandsShown = (indicators.indexOf('bollinger') !== -1);
             if (bollingerBandsShown) {
                 var bollingerBandsVisibleDataObject = visibleData.map(function(d) { return d.bollingerBands; });
@@ -59,7 +60,12 @@
                 extent[0] = d3.min([movingAverageExtent[0], extent[0]]);
                 extent[1] = d3.max([movingAverageExtent[1], extent[1]]);
             }
-            if (!(movingAverageShown || bollingerBandsShown)) {
+            if (exponentialMovingAverageShown) {
+                var exponentialMovingAverageExtent = fc.util.extent(visibleData, 'exponentialMovingAverage');
+                extent[0] = Math.min(exponentialMovingAverageExtent[0], extent[0]);
+                extent[1] = Math.max(exponentialMovingAverageExtent[1], extent[1]);
+            }
+            if (!(movingAverageShown || exponentialMovingAverageShown || bollingerBandsShown)) {
                 throw new Error('Unexpected indicator type');
             }
         }
@@ -126,6 +132,7 @@
 
         // Create and apply the Moving Average
         var movingAverage = fc.indicator.algorithm.movingAverage();
+        var exponentialMovingAverage = fc.indicator.algorithm.exponentialMovingAverage();
         var bollingerAlgorithm = fc.indicator.algorithm.bollingerBands();
 
         function updateMultiSeries(series) {
@@ -138,6 +145,7 @@
 
         function updateYValueAccessorUsed() {
             movingAverage.value(currentYValueAccessor);
+            exponentialMovingAverage.value(currentYValueAccessor);
             bollingerAlgorithm.value(currentYValueAccessor);
             closeLine.value(currentYValueAccessor);
             switch (currentSeries.valueString) {
@@ -171,6 +179,7 @@
             setCrosshairSnap(currentSeries.option, model.data);
 
             movingAverage(model.data);
+            exponentialMovingAverage(model.data);
             bollingerAlgorithm(model.data);
 
             // Scale y axis
