@@ -8,6 +8,7 @@
     /* jshint ignore:end */
 
     global.sc = {
+        behavior: {},
         chart: {},
         data: {
             feed: {
@@ -16,96 +17,190 @@
         },
         menu: {
             generator: {},
-            primaryChart: {},
-            secondaryChart: {}
+            primary: {},
+            secondary: {}
         },
         series: {},
         util: {
             dimensions: {},
-            domain: {}
+            domain: {},
+            zoom: {}
         }
     };
 })();
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.chart.macdChart = function() {
-        var dispatch = d3.dispatch('viewChange');
+    sc.chart.foreground = function() {
+        var topMargin = 0,
+            rightMargin = 0,
+            bottomMargin = 0,
+            leftMargin = 0;
 
-        var macdAlgorithm = fc.indicator.algorithm.macd();
+        var createForeground = fc.util.dataJoin()
+            .selector('rect.foreground')
+            .element('rect')
+            .attr('class', 'foreground');
 
-        var macd = fc.indicator.renderer.macd();
-
-        function macdChart(selection) {
-            var data = selection.datum().data;
-            var viewDomain = selection.datum().viewDomain;
-
-            macdAlgorithm(data);
-
-            var maxYExtent = d3.max(data, function(d) {
-                return Math.abs(d.macd.macd);
-            });
-
-            macd.xScale()
-                .domain(viewDomain)
-                .range([0, fc.util.innerDimensions(selection.node()).width]);
-            macd.yScale()
-                .domain([-maxYExtent, maxYExtent])
-                .range([fc.util.innerDimensions(selection.node()).height, 0]);
-
-
-            var zoom = d3.behavior.zoom();
-            zoom.x(macd.xScale())
-                .on('zoom', function() {
-                    sc.util.zoomControl(zoom, selection, data, macd.xScale());
-                    dispatch.viewChange(macd.xScale().domain());
+        function foreground(selection) {
+            createForeground(selection, [selection.datum()])
+                .layout({
+                    position: 'absolute',
+                    top: topMargin,
+                    right: rightMargin,
+                    bottom: bottomMargin,
+                    left: leftMargin
                 });
 
-            selection.call(zoom);
-            selection.datum(data)
-                .call(macd);
+            selection.layout();
         }
 
-        d3.rebind(macdChart, dispatch, 'on');
+        foreground.topMargin = function(x) {
+            if (!arguments.length) {
+                return topMargin;
+            }
+            topMargin = x;
+            return foreground;
+        };
 
-        return macdChart;
+        foreground.rightMargin = function(x) {
+            if (!arguments.length) {
+                return rightMargin;
+            }
+            rightMargin = x;
+            return foreground;
+        };
+
+        foreground.bottomMargin = function(x) {
+            if (!arguments.length) {
+                return bottomMargin;
+            }
+            bottomMargin = x;
+            return foreground;
+        };
+
+        foreground.leftMargin = function(x) {
+            if (!arguments.length) {
+                return leftMargin;
+            }
+            leftMargin = x;
+            return foreground;
+        };
+
+        return foreground;
     };
-
 })(d3, fc, sc);
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.chart.navChart = function() {
+    sc.chart.macd = function() {
+        var yAxisWidth = 45;
+
+        var dispatch = d3.dispatch('viewChange');
+
+        var macdTimeSeries = fc.chart.linearTimeSeries()
+            .xAxisHeight(0)
+            .yAxisWidth(yAxisWidth)
+            .yOrient('right');
+
+        var zero = fc.annotation.line()
+            .value(0)
+            .label('');
+        var macdRenderer = fc.indicator.renderer.macd();
+        var multi = fc.series.multi()
+            .series([zero, macdRenderer])
+            .mapping(function(series) {
+                if (series === zero) {
+                    return [0];
+                }
+                return this.data;
+            })
+            .decorate(function(g) {
+                g.enter()
+                    .attr('class', function(d, i) {
+                        return ['multi zero', 'multi'][i];
+                    });
+            });
+
+        var createForeground = sc.chart.foreground()
+            .rightMargin(yAxisWidth);
+
+        var macdAlgorithm = fc.indicator.algorithm.macd();
+
+        function macd(selection) {
+            var dataModel = selection.datum();
+
+            macdAlgorithm(dataModel.data);
+
+            macdTimeSeries.xDomain(dataModel.viewDomain);
+
+            // Add percentage padding either side of extreme high/lows
+            var maxYExtent = d3.max(dataModel.data, function(d) {
+                return Math.abs(d.macd.macd);
+            });
+            var paddedYExtent = sc.util.domain.padYDomain([-maxYExtent, maxYExtent], 0.04);
+            macdTimeSeries.yDomain(paddedYExtent);
+
+            // Redraw
+            macdTimeSeries.plotArea(multi);
+            selection.call(macdTimeSeries);
+
+            selection.call(createForeground);
+            var foreground = selection.select('rect.foreground');
+
+            // Behaves oddly if not reinitialized every render
+            var zoom = sc.behavior.zoom(macdTimeSeries.xScale())
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
+                });
+
+            foreground.call(zoom);
+        }
+
+        d3.rebind(macd, dispatch, 'on');
+
+        return macd;
+    };
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.chart.nav = function() {
         var dispatch = d3.dispatch('viewChange');
 
         var navTimeSeries = fc.chart.linearTimeSeries()
             .yTicks(0)
             .yOrient('right');
 
-        var area = fc.series.area()
-            .yValue(function(d) { return d.open; });
-
-        var line = fc.series.line()
-            .yValue(function(d) { return d.open; });
-
-        var brush = d3.svg.brush();
-
-        var navMulti = fc.series.multi().series([area, line, brush]);
-
         var viewScale = fc.scale.dateTime();
 
-        function navChart(selection) {
-            var data = selection.datum().data;
-            var viewDomain = selection.datum().viewDomain;
+        var area = fc.series.area()
+            .yValue(function(d) { return d.open; });
+        var line = fc.series.line()
+            .yValue(function(d) { return d.open; });
+        var brush = d3.svg.brush();
+        var navMulti = fc.series.multi().series([area, line, brush])
+            .mapping(function(series) {
+                if (series === brush) {
+                    brush.extent([
+                        [viewScale.domain()[0], navTimeSeries.yDomain()[0]],
+                        [viewScale.domain()[1], navTimeSeries.yDomain()[1]]
+                    ]);
+                }
+                return this.data;
+            });
 
-            viewScale.domain(viewDomain)
+        function nav(selection) {
+            var dataModel = selection.datum();
+
+            viewScale.domain(dataModel.viewDomain)
                 .range([0, fc.util.innerDimensions(selection.node()).width]);
 
             var yExtent = fc.util.extent(
-                sc.util.domain.filterDataInDateRange(fc.util.extent(data, 'date'), data),
+                sc.util.domain.filterDataInDateRange(fc.util.extent(dataModel.data, 'date'), dataModel.data),
                 ['low', 'high']);
 
-            navTimeSeries.xDomain(fc.util.extent(data, 'date'))
+            navTimeSeries.xDomain(fc.util.extent(dataModel.data, 'date'))
                 .yDomain(yExtent);
 
             brush.on('brush', function() {
@@ -115,42 +210,26 @@
                 }
             });
 
-            // Allow to zoom using mouse, but disable panning
-            var zoom = d3.behavior.zoom();
-            zoom.x(viewScale)
-                .on('zoom', function() {
-                    if (zoom.scale() === 1) {
-                        zoom.translate([0, 0]);
-                    } else {
-                        // Usual behavior
-                        sc.util.zoomControl(zoom, selection, data, viewScale);
-                        dispatch.viewChange(viewScale.domain());
-                    }
-                });
-            selection.call(zoom);
-
-
-            navMulti.mapping(function(series) {
-                if (series === brush) {
-                    brush.extent([
-                        [viewScale.domain()[0], navTimeSeries.yDomain()[0]],
-                        [viewScale.domain()[1], navTimeSeries.yDomain()[1]]
-                    ]);
-                }
-                return data;
-            });
-
             navTimeSeries.plotArea(navMulti);
             selection.call(navTimeSeries);
+
+            // Behaves oddly if not reinitialized every render
+            // Allow to zoom using mouse, but disable panning
+            var zoom = sc.behavior.zoom(viewScale)
+                .allowPan(false)
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
+                });
+
+            selection.call(zoom);
         }
 
-        d3.rebind(navChart, dispatch, 'on');
+        d3.rebind(nav, dispatch, 'on');
 
-        return navChart;
+        return nav;
     };
 
 })(d3, fc, sc);
-
 (function(d3, fc, sc) {
     'use strict';
 
@@ -178,7 +257,7 @@
         return annotatedTickValues;
     }
 
-    function findTotalYExtent(visibleData, currentSeries, indicators) {
+    function findTotalYExtent(visibleData, currentSeries, currentIndicators) {
         var extentAccessor;
         switch (currentSeries.valueString) {
             case 'candlestick':
@@ -197,19 +276,20 @@
         }
         var extent = fc.util.extent(visibleData, extentAccessor);
 
-        if (indicators.length) {
+        if (currentIndicators.length) {
+            var indicators = currentIndicators.map(function(indicator) { return indicator.valueString; });
             var movingAverageShown = (indicators.indexOf('movingAverage') !== -1);
             var bollingerBandsShown = (indicators.indexOf('bollinger') !== -1);
             if (bollingerBandsShown) {
                 var bollingerBandsVisibleDataObject = visibleData.map(function(d) { return d.bollingerBands; });
                 var bollingerBandsExtent = fc.util.extent(bollingerBandsVisibleDataObject, ['lower', 'upper']);
-                extent[0] = Math.min(bollingerBandsExtent[0], extent[0]);
-                extent[1] = Math.max(bollingerBandsExtent[1], extent[1]);
+                extent[0] = d3.min([bollingerBandsExtent[0], extent[0]]);
+                extent[1] = d3.max([bollingerBandsExtent[1], extent[1]]);
             }
             if (movingAverageShown) {
                 var movingAverageExtent = fc.util.extent(visibleData, 'movingAverage');
-                extent[0] = Math.min(movingAverageExtent[0], extent[0]);
-                extent[1] = Math.max(movingAverageExtent[1], extent[1]);
+                extent[0] = d3.min([movingAverageExtent[0], extent[0]]);
+                extent[1] = d3.max([movingAverageExtent[1], extent[1]]);
             }
             if (!(movingAverageShown || bollingerBandsShown)) {
                 throw new Error('Unexpected indicator type');
@@ -218,32 +298,21 @@
         return extent;
     }
 
-    sc.chart.primaryChart = function() {
+    sc.chart.primary = function() {
         var yAxisWidth = 45;
 
         var dispatch = d3.dispatch('viewChange');
 
-        var priceFormat = d3.format('.2f');
-
-        var timeSeries = fc.chart.linearTimeSeries()
-            .xAxisHeight(0)
-            .yAxisWidth(yAxisWidth)
-            .yOrient('right')
-            .yTickFormat(priceFormat);
+        var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
+        var currentYValueAccessor = function(d) { return d.close; };
+        var currentIndicators = [];
 
         var gridlines = fc.annotation.gridline()
             .yTicks(5)
             .xTicks(0);
-
-        var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
-
-        // Create and apply the Moving Average
-        var movingAverage = fc.indicator.algorithm.movingAverage();
-        var bollingerAlgorithm = fc.indicator.algorithm.bollingerBands();
-
         var closeLine = fc.annotation.line()
             .orient('horizontal')
-            .value(function(d) { return d.close; })
+            .value(currentYValueAccessor)
             .label('');
 
         var multi = fc.series.multi()
@@ -253,157 +322,242 @@
                 }
                 return series;
             })
-            .series([gridlines, currentSeries, closeLine]);
+            .series([gridlines, currentSeries.option, closeLine])
+            .mapping(function(series) {
+                switch (series) {
+                    case closeLine:
+                        return [this.data[this.data.length - 1]];
+                    default:
+                        return this.data;
+                }
+            });
 
-        var indicatorMulti = fc.series.multi();
-        var indicatorStrings = [];
+        var createForeground = sc.chart.foreground()
+            .rightMargin(yAxisWidth);
+
+        var priceFormat = d3.format('.2f');
+
+        var timeSeries = fc.chart.linearTimeSeries()
+            .xAxisHeight(0)
+            .yAxisWidth(yAxisWidth)
+            .yOrient('right')
+            .yTickFormat(priceFormat);
+
+        // Create and apply the Moving Average
+        var movingAverage = fc.indicator.algorithm.movingAverage();
+        var bollingerAlgorithm = fc.indicator.algorithm.bollingerBands();
 
         function updateMultiSeries() {
-            if (indicatorMulti.series()) {
-                multi.series([gridlines, currentSeries.option, closeLine, indicatorMulti]);
-            } else {
-                multi.series([gridlines, currentSeries.option, closeLine]);
+            var baseChart = [gridlines, currentSeries.option, closeLine];
+            var indicators = currentIndicators.map(function(indicator) { return indicator.option; });
+            multi.series(baseChart.concat(indicators));
+        }
+
+        function updateYValueAccessorUsed() {
+            movingAverage.value(currentYValueAccessor);
+            bollingerAlgorithm.value(currentYValueAccessor);
+            closeLine.value(currentYValueAccessor);
+            switch (currentSeries.valueString) {
+                case 'line':
+                case 'point':
+                case 'area':
+                    currentSeries.option.yValue(currentYValueAccessor);
+                    break;
+                default:
+                    break;
             }
         }
 
-        function primaryChart(selection) {
-            var data = selection.datum().data;
-            var viewDomain = selection.datum().viewDomain;
+        function primary(selection) {
+            var dataModel = selection.datum();
 
-            timeSeries.xDomain(viewDomain);
+            timeSeries.xDomain(dataModel.viewDomain);
 
-            movingAverage(data);
-            bollingerAlgorithm(data);
-
+            updateYValueAccessorUsed();
             updateMultiSeries();
 
-            var visibleData = sc.util.domain.filterDataInDateRange(timeSeries.xDomain(), data);
+            movingAverage(dataModel.data);
+            bollingerAlgorithm(dataModel.data);
 
             // Scale y axis
-            var yExtent = findTotalYExtent(visibleData, currentSeries, indicatorStrings);
+            var visibleData = sc.util.domain.filterDataInDateRange(timeSeries.xDomain(), dataModel.data);
+            var yExtent = findTotalYExtent(visibleData, currentSeries, currentIndicators);
             // Add percentage padding either side of extreme high/lows
             var paddedYExtent = sc.util.domain.padYDomain(yExtent, 0.04);
             timeSeries.yDomain(paddedYExtent);
 
             // Find current tick values and add close price to this list, then set it explicitly below
-            var closePrice = data[data.length - 1].close;
-            var tickValues = produceAnnotatedTickValues(timeSeries.yScale(), [closePrice]);
+            var latestPrice = currentYValueAccessor(dataModel.data[dataModel.data.length - 1]);
+            var tickValues = produceAnnotatedTickValues(timeSeries.yScale(), [latestPrice]);
             timeSeries.yTickValues(tickValues)
                 .yDecorate(function(s) {
-                    s.classed('closeLine', function(d) {
-                            return d === closePrice;
-                        })
-                        .select('path').attr('d', function(d) {
-                            if (d === closePrice) {
-                                return d3.svg.area()(calculateCloseAxisTagPath(yAxisWidth, 14));
-                            }
+                    s.filter(function(d) { return d === latestPrice; })
+                        .classed('closeLine', true)
+                        .select('path')
+                        .attr('d', function(d) {
+                            return d3.svg.area()(calculateCloseAxisTagPath(yAxisWidth, 14));
                         });
                 });
-
-            multi.mapping(function(series) {
-                switch (series) {
-                    case closeLine:
-                        return [data[data.length - 1]];
-                    default:
-                        return data;
-                }
-            });
 
             // Redraw
             timeSeries.plotArea(multi);
             selection.call(timeSeries);
 
+            selection.call(createForeground);
+            var foreground = selection.select('rect.foreground');
+
             // Behaves oddly if not reinitialized every render
-            var zoom = d3.behavior.zoom();
-            zoom.x(timeSeries.xScale())
-                .on('zoom', function() {
-                    sc.util.zoomControl(zoom, selection.select('.plot-area'), data, timeSeries.xScale());
-                    dispatch.viewChange(timeSeries.xDomain());
+            var zoom = sc.behavior.zoom(timeSeries.xScale())
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
                 });
 
-            selection.call(zoom);
+            foreground.call(zoom);
         }
 
-        d3.rebind(primaryChart, dispatch, 'on');
+        d3.rebind(primary, dispatch, 'on');
 
-        primaryChart.yAxisWidth = function() { return timeSeries.yAxisWidth; };
-
-        primaryChart.changeSeries = function(series) {
+        primary.changeSeries = function(series) {
             currentSeries = series;
-            return primaryChart;
+            return primary;
         };
 
-        primaryChart.toggleIndicator = function(indicator) {
-            if (indicator.show) {
-                indicatorMulti.series()
-                    .push(indicator.option);
-                indicatorStrings.push(indicator.valueString);
-            } else {
-                var index = indicatorMulti.series()
-                    .indexOf(indicator.option);
-                if (index > -1) {
-                    indicatorMulti.series()
-                        .splice(index, 1);
-                    indicatorStrings.splice(indicatorStrings.indexOf(indicator.valueString), 1);
-                } else {
-                    throw new Error('Cannot remove already removed indicator');
-                }
+        primary.changeYValueAccessor = function(yValueAccessor) {
+            currentYValueAccessor = yValueAccessor.option;
+            return primary;
+        };
+
+        primary.toggleIndicator = function(indicator) {
+            if (currentIndicators.indexOf(indicator.option) !== -1 && !indicator.toggled) {
+                currentIndicators.splice(currentIndicators.indexOf(indicator.option), 1);
+            } else if (indicator.toggled) {
+                currentIndicators.push(indicator.option);
             }
-            return primaryChart;
+            return primary;
         };
 
-        return primaryChart;
+        return primary;
     };
 })(d3, fc, sc);
-
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.chart.rsiChart = function() {
+    sc.chart.rsi = function() {
+        var yAxisWidth = 45;
+
         var dispatch = d3.dispatch('viewChange');
 
-        var rsiScale = d3.scale.linear()
-            .domain([0, 100]);
+        var rsiRenderer = fc.indicator.renderer.relativeStrengthIndex();
+        var multi = fc.series.multi()
+            .series([rsiRenderer])
+            .mapping(function() { return this.data; });
+
+        var createForeground = sc.chart.foreground()
+            .rightMargin(yAxisWidth);
+
+        var tickValues = [rsiRenderer.lowerValue(), 50, rsiRenderer.upperValue()];
+
+        var rsiTimeSeries = fc.chart.linearTimeSeries()
+            .xAxisHeight(0)
+            .yAxisWidth(yAxisWidth)
+            .yOrient('right')
+            .yTickValues(tickValues);
 
         var rsiAlgorithm = fc.indicator.algorithm.relativeStrengthIndex();
 
-        var rsi = fc.indicator.renderer.relativeStrengthIndex()
-            .yScale(rsiScale);
+        function rsi(selection) {
+            var dataModel = selection.datum();
 
-        function rsiChart(selection) {
-            var data = selection.datum().data;
-            var viewDomain = selection.datum().viewDomain;
+            rsiAlgorithm(dataModel.data);
 
-            rsi.xScale()
-                .domain(viewDomain)
-                .range([0, fc.util.innerDimensions(selection.node()).width]);
-            rsi.yScale().range([fc.util.innerDimensions(selection.node()).height, 0]);
+            rsiTimeSeries.xDomain(dataModel.viewDomain)
+                .yDomain([0, 100]);
 
-            rsiAlgorithm(data);
+            // Redraw
+            rsiTimeSeries.plotArea(multi);
+            selection.call(rsiTimeSeries);
 
-            var zoom = d3.behavior.zoom();
-            zoom.x(rsi.xScale())
-                .on('zoom', function() {
-                    sc.util.zoomControl(zoom, selection, data, rsi.xScale());
-                    dispatch.viewChange(rsi.xScale().domain());
+            selection.call(createForeground);
+            var foreground = selection.select('rect.foreground');
+
+            // Behaves oddly if not reinitialized every render
+            var zoom = sc.behavior.zoom(rsiTimeSeries.xScale())
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
                 });
 
-            selection.call(zoom);
-            selection.datum(data)
-                .call(rsi);
+            foreground.call(zoom);
         }
 
-        d3.rebind(rsiChart, dispatch, 'on');
+        d3.rebind(rsi, dispatch, 'on');
 
-        return rsiChart;
+        return rsi;
     };
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
 
+    sc.chart.volume = function() {
+        var yAxisWidth = 45;
+
+        var dispatch = d3.dispatch('viewChange');
+
+        var volumeTimeSeries = fc.chart.linearTimeSeries()
+            .xAxisHeight(0)
+            .yAxisWidth(yAxisWidth)
+            .yOrient('right');
+
+        var volumeBar = fc.series.bar()
+            .yValue(function(d) { return d.volume; });
+        var multi = fc.series.multi()
+            .series([volumeBar])
+            .mapping(function(series) {
+                return this.data;
+            });
+
+        var createForeground = sc.chart.foreground()
+            .rightMargin(yAxisWidth);
+
+        function volume(selection) {
+            var dataModel = selection.datum();
+
+            volumeTimeSeries.xDomain(dataModel.viewDomain);
+
+            // Add percentage padding either side of extreme high/lows
+            var maxYExtent = d3.max(dataModel.data, function(d) {
+                return d3.max([d.volume]);
+            });
+            var minYExtent = d3.min(dataModel.data, function(d) {
+                return d3.min([d.volume]);
+            });
+            var paddedYExtent = sc.util.domain.padYDomain([minYExtent, maxYExtent], 0.04);
+            volumeTimeSeries.yDomain(paddedYExtent);
+
+            // Redraw
+            volumeTimeSeries.plotArea(multi);
+            selection.call(volumeTimeSeries);
+
+            selection.call(createForeground);
+            var foreground = selection.select('rect.foreground');
+
+            // Behaves oddly if not reinitialized every render
+            var zoom = sc.behavior.zoom(volumeTimeSeries.xScale())
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
+                });
+
+            foreground.call(zoom);
+        }
+
+        d3.rebind(volume, dispatch, 'on');
+
+        return volume;
+    };
 })(d3, fc, sc);
 (function(sc) {
     'use strict';
 
     sc.chart.xAxis = function() {
-        var dispatch = d3.dispatch('viewChange');
 
         var xAxisHeight = 20;
         var xScale = fc.scale.dateTime();
@@ -438,24 +592,27 @@
             xAxisContainer.call(xAxis);
         }
 
-        d3.rebind(xAxisChart, dispatch, 'on');
-
         return xAxisChart;
     };
 })(sc);
-(function(d3, fc) {
+(function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.generator.buttonGroup = function() {
+    sc.menu.generator.buttonGroup = function(defaultValue) {
+        if (!arguments.length) {
+            defaultValue = 0;
+        }
+
         var dispatch = d3.dispatch('optionChange');
 
         function layoutButtons(sel) {
+            var activeValue = defaultValue < sel.datum().length ? defaultValue : 0;
             sel.selectAll('label')
                 .data(sel.datum())
                 .enter()
                 .append('label')
                 .classed('btn btn-default', true)
-                .classed('active', function(d, i) { return (i === 0); })
+                .classed('active', function(d, i) { return (i === activeValue); })
                 .text(function(d, i) { return d.displayString; })
                 .insert('input')
                 .attr({
@@ -463,7 +620,7 @@
                     name: 'options',
                     value: function(d, i) { return d.valueString; }
                 })
-                .property('checked', function(d, i) { return (i === 0); });
+                .property('checked', function(d, i) { return (i === activeValue); });
         }
 
         function optionGenerator(selection) {
@@ -482,7 +639,50 @@
         return optionGenerator;
     };
 
-})(d3, fc);
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.menu.generator.toggleGroup = function() {
+        var dispatch = d3.dispatch('toggleChange');
+
+        function layoutButtons(sel) {
+            sel.selectAll('label')
+                .data(sel.datum())
+                .enter()
+                .append('label')
+                .classed('btn btn-default', true)
+                .text(function(d) { return d.displayString; })
+                .append('input')
+                .attr({
+                    type: 'checkbox',
+                    name: 'toggle',
+                    value: function(d) { return d.valueString; }
+                });
+        }
+
+        function toggleGenerator(selection) {
+            selection.call(layoutButtons);
+
+            selection.selectAll('.btn')
+                .on('click', function() {
+                    var self = d3.select(this);
+                    setTimeout(function() {
+                        var toggledOption = {
+                            option: self.datum(),
+                            toggled: self.select('input').property('checked')
+                        };
+                        dispatch.toggleChange(toggledOption);
+                    }, 0);
+                });
+        }
+
+        d3.rebind(toggleGenerator, dispatch, 'on');
+
+        return toggleGenerator;
+    };
+
+})(d3, fc, sc);
 (function(d3, fc, sc) {
     'use strict';
 
@@ -541,53 +741,6 @@
 })(d3, fc, sc);
 (function(d3, fc) {
     'use strict';
-
-    sc.menu.indicatorChoice = function() {
-        var dispatch = d3.dispatch('indicatorSelect');
-
-        function indicatorButtons(sel) {
-            sel.selectAll('label')
-                .data(sel.datum())
-                .enter()
-                .append('label')
-                .classed('btn btn-default', true)
-                .text(function(d) {return d.displayString; })
-                .append('input')
-                .attr({
-                    type: 'checkbox',
-                    name: 'indicatorType',
-                    id: function(d) { return d.valueString; },
-                    value: function(d) { return d.valueString; }
-                });
-        }
-
-        function indicatorChoice(selection) {
-            selection.call(indicatorButtons);
-
-            selection.selectAll('.btn')
-                .on('click', function() {
-                    var element = d3.select(this);
-                    setTimeout(function() {
-                        var selectedIndicator;
-                        var checked = element.select('input')
-                            .property('checked');
-                        selectedIndicator = element
-                            .datum();
-                        selectedIndicator.show = checked;
-                        dispatch.indicatorSelect(selectedIndicator);
-                    }, 0);
-
-                });
-        }
-
-        d3.rebind(indicatorChoice, dispatch, 'on');
-
-        return indicatorChoice;
-    };
-
-})(d3, fc);
-(function(d3, fc) {
-    'use strict';
     sc.menu.option = function(displayString, valueString, option) {
         return {
             displayString: displayString,
@@ -600,7 +753,7 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.primaryChart.indicators = function() {
+    sc.menu.primary.indicators = function() {
 
         var dispatch = d3.dispatch('primaryChartIndicatorChange');
 
@@ -613,28 +766,27 @@
 
         var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage', movingAverage);
         var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger', fc.indicator.renderer.bollingerBands());
-        var indicators = [movingAverageIndicator, bollingerIndicator];
 
-        var options = sc.menu.indicatorChoice()
-            .on('indicatorSelect', function(indicator) {
+        var toggle = sc.menu.generator.toggleGroup()
+            .on('toggleChange', function(indicator) {
                 dispatch.primaryChartIndicatorChange(indicator);
             });
 
-        var primaryChartSeriesMenu = function(selection) {
+        var primaryChartIndicatorMenu = function(selection) {
             selection.each(function() {
                 var selection = d3.select(this)
-                    .data([indicators]);
-                selection.call(options);
+                    .datum([movingAverageIndicator, bollingerIndicator]);
+                selection.call(toggle);
             });
         };
 
-        return d3.rebind(primaryChartSeriesMenu, dispatch, 'on');
+        return d3.rebind(primaryChartIndicatorMenu, dispatch, 'on');
     };
 })(d3, fc, sc);
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.primaryChart.series = function() {
+    sc.menu.primary.series = function() {
 
         var dispatch = d3.dispatch('primaryChartSeriesChange');
 
@@ -665,24 +817,53 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.menu.secondaryChart.chart = function() {
+    sc.menu.primary.yValueAccessor = function() {
+
+        var dispatch = d3.dispatch('primaryChartYValueAccessorChange');
+
+        var open = sc.menu.option('Open', 'open', function(d) { return d.open; });
+        var high = sc.menu.option('High', 'high', function(d) { return d.high; });
+        var low = sc.menu.option('Low', 'low', function(d) { return d.low; });
+        var close = sc.menu.option('Close', 'close', function(d) { return d.close; });
+
+        var options = sc.menu.generator.buttonGroup(3)
+            .on('optionChange', function(yValueAccessor) {
+                dispatch.primaryChartYValueAccessorChange(yValueAccessor);
+            });
+
+        var primaryChartYValueAccessorMenu = function(selection) {
+            selection.each(function() {
+                var selection = d3.select(this)
+                    .datum([open, high, low, close]);
+                selection.call(options);
+            });
+        };
+
+        return d3.rebind(primaryChartYValueAccessorMenu, dispatch, 'on');
+    };
+
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.menu.secondary.chart = function() {
 
         var dispatch = d3.dispatch('secondaryChartChange');
 
-        var noChart = sc.menu.option('None', 'no-chart', null);
-        var rsiChart = sc.menu.option('RSI', 'rsi', sc.chart.rsiChart());
-        var macdChart = sc.menu.option('MACD', 'macd', sc.chart.macdChart());
+        var rsi = sc.menu.option('RSI', 'secondary-rsi', sc.chart.rsi());
+        var macd = sc.menu.option('MACD', 'secondary-macd', sc.chart.macd());
+        var volume = sc.menu.option('Volume', 'secondary-volume', sc.chart.volume());
 
-        var options = sc.menu.generator.buttonGroup()
-            .on('optionChange', function(chart) {
+        var toggle = sc.menu.generator.toggleGroup()
+            .on('toggleChange', function(chart) {
                 dispatch.secondaryChartChange(chart);
             });
 
         var secondaryChartMenu = function(selection) {
             selection.each(function() {
                 var selection = d3.select(this)
-                    .datum([noChart, rsiChart, macdChart]);
-                selection.call(options);
+                    .datum([rsi, macd, volume]);
+                selection.call(toggle);
             });
         };
 
@@ -695,22 +876,28 @@
     sc.menu.side = function() {
 
         var dispatch = d3.dispatch('primaryChartSeriesChange',
+            'primaryChartYValueAccessorChange',
             'primaryChartIndicatorChange',
             'secondaryChartChange');
 
-        var primaryChartSeriesOptions = sc.menu.primaryChart.series()
+        var primaryChartSeriesOptions = sc.menu.primary.series()
             .on('primaryChartSeriesChange', function(series) {
                 dispatch.primaryChartSeriesChange(series);
             });
 
-        var primaryChartIndicatorOptions = sc.menu.primaryChart.indicators()
-            .on('primaryChartIndicatorChange', function(indicator) {
-                dispatch.primaryChartIndicatorChange(indicator);
+        var primaryChartYValueAccessorOptions = sc.menu.primary.yValueAccessor()
+            .on('primaryChartYValueAccessorChange', function(yValueAccessor) {
+                dispatch.primaryChartYValueAccessorChange(yValueAccessor);
             });
 
-        var secondaryChartOptions = sc.menu.secondaryChart.chart()
-            .on('secondaryChartChange', function(chart) {
-                dispatch.secondaryChartChange(chart);
+        var primaryChartIndicatorOptions = sc.menu.primary.indicators()
+            .on('primaryChartIndicatorChange', function(toggledIndicator) {
+                dispatch.primaryChartIndicatorChange(toggledIndicator);
+            });
+
+        var secondaryChartOptions = sc.menu.secondary.chart()
+            .on('secondaryChartChange', function(toggledChart) {
+                dispatch.secondaryChartChange(toggledChart);
             });
 
         var side = function(selection) {
@@ -718,6 +905,8 @@
                 var selection = d3.select(this);
                 selection.select('#series-buttons')
                     .call(primaryChartSeriesOptions);
+                selection.select('#y-value-accessor-buttons')
+                    .call(primaryChartYValueAccessorOptions);
                 selection.select('#indicator-buttons')
                     .call(primaryChartIndicatorOptions);
                 selection.select('#secondary-chart-buttons')
@@ -754,24 +943,34 @@
 (function(d3, fc) {
     'use strict';
 
-    sc.util.dimensions.layout = function(container, secondaryChartShown) {
-        var headRowHeight = parseInt(container.select('#head-row').style('height'), 10) +
-            parseInt(container.select('#head-row').style('padding-top'), 10) +
-            parseInt(container.select('#head-row').style('padding-bottom'), 10);
-        var navHeight = parseInt(container.select('#nav-row').style('height'), 10);
-        var xAxisHeight = parseInt(container.select('#x-axis-row').style('height'), 10);
+    sc.util.dimensions.layout = function(container, secondaryCharts) {
+        var headRowHeight = parseInt(container.select('.head-row').style('height'), 10) +
+            parseInt(container.select('.head-row').style('padding-top'), 10) +
+            parseInt(container.select('.head-row').style('padding-bottom'), 10);
+        var navHeight = parseInt(container.select('.nav-row').style('height'), 10);
+        var xAxisHeight = parseInt(container.select('.x-axis-row').style('height'), 10);
 
         var useableScreenHeight = window.innerHeight - headRowHeight - xAxisHeight - navHeight;
 
-        var primaryHeightRatio = secondaryChartShown ? 2 : 1;
-        var secondaryHeightRatio = secondaryChartShown ? 1 : 0;
+        var secondaryChartsShown = 0;
+        for (var j = 0; j < secondaryCharts.length; j++) {
+            if (secondaryCharts[j]) {
+                secondaryChartsShown++;
+            }
+        }
 
-        var totalHeightRatio = primaryHeightRatio + secondaryHeightRatio;
+        var primaryHeightRatio = 1 + secondaryChartsShown;
+        var secondaryHeightRatio = secondaryChartsShown ? 1 : 0;
+        var totalHeightRatio = 1 + 2 * secondaryChartsShown;
 
-        container.select('#primary-row')
+        container.select('.primary-row')
             .style('height', primaryHeightRatio * useableScreenHeight / totalHeightRatio + 'px');
-        container.select('#secondary-row')
+        container.selectAll('.secondary-row')
+            .filter(function(d, i) { return i < secondaryChartsShown; })
             .style('height', secondaryHeightRatio * useableScreenHeight / totalHeightRatio + 'px');
+        container.selectAll('.secondary-row')
+            .filter(function(d, i) { return i >= secondaryChartsShown; })
+            .style('height', '0px');
     };
 
 })(d3, fc);
@@ -792,6 +991,23 @@
 })(d3, fc, sc);
 (function(d3, fc, sc) {
     'use strict';
+
+    sc.util.domain.moveToLatest = function(domain, data, ratio) {
+        if (arguments.length < 3) {
+            ratio = 1;
+        }
+        var dataExtent = fc.util.extent(data, 'date');
+        var dataTimeExtent = (dataExtent[1].getTime() - dataExtent[0].getTime()) / 1000;
+        var domainTimeExtent = ratio * (domain[1].getTime() - domain[0].getTime()) / 1000;
+        var latest = data[data.length - 1].date;
+        var scaledLiveDataDomain = domainTimeExtent < dataTimeExtent ?
+            [d3.time.second.offset(latest, -domainTimeExtent), latest] : dataExtent;
+        return scaledLiveDataDomain;
+    };
+
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
     sc.util.domain.padYDomain = function(domain, paddingPercentage) {
         var paddedDomain = [];
         var variance = domain[1] - domain[0];
@@ -803,50 +1019,11 @@
 })(d3, fc, sc);
 (function(d3, fc, sc) {
     'use strict';
-    sc.util.domain.shiftToLiveData = function(domain, data) {
-        var extentTime = domain[1].getTime() - domain[0].getTime();
-        var latestDate = data[data.length - 1].date;
-        return [new Date(latestDate.getTime() - extentTime), latestDate];
-    };
 
-})(d3, fc, sc);
-(function(d3, fc, sc) {
-    'use strict';
     sc.util.domain.trackingLiveData = function(domain, data) {
         var latestViewedTime = domain[1].getTime();
         var lastDatumTime = data[data.length - 1].date.getTime();
         return latestViewedTime === lastDatumTime;
-    };
-
-})(d3, fc, sc);
-(function(d3, fc, sc) {
-    'use strict';
-
-    sc.util.zoomControl = function(zoom, selection, data, scale) {
-        var tx = zoom.translate()[0];
-        var ty = zoom.translate()[1];
-
-        var xExtent = fc.util.extent(data, ['date']);
-        var min = scale(xExtent[0]);
-        var max = scale(xExtent[1]);
-
-        // Don't pan off sides
-        var width = selection.attr('width') || fc.util.innerDimensions(selection.node()).width;
-        if (min > 0) {
-            tx -= min;
-        } else if (max - width < 0) {
-            tx -= (max - width);
-        }
-        // If zooming, and about to pan off screen, do nothing
-        if (zoom.scale() !== 1) {
-            if ((min >= 0) && (max - width) <= 0) {
-                scale.domain(xExtent);
-                zoom.x(scale);
-                tx = scale(xExtent[0]);
-            }
-        }
-
-        zoom.translate([tx, ty]);
     };
 })(d3, fc, sc);
 (function(d3, fc, sc) {
@@ -1053,6 +1230,99 @@
 
 (function(d3, fc, sc) {
     'use strict';
+
+    sc.behavior.zoom = function(scale) {
+
+        var dispatch = d3.dispatch('zoom');
+
+        var zoomBehavior = d3.behavior.zoom();
+        var zoomScale = scale;
+
+        var allowPan = true;
+        var allowZoom = true;
+
+        function controlPan(zoom, selection, scale) {
+            var tx = zoom.translate()[0];
+
+            var width = selection.attr('width') || parseInt(selection.style('width'), 10);
+            var xExtent = fc.util.extent(selection.datum().data, ['date']);
+            var min = scale(xExtent[0]);
+            var max = scale(xExtent[1]);
+
+            // Don't pan off sides
+            if (min > 0) {
+                tx -= min;
+            } else if (max - width < 0) {
+                tx -= (max - width);
+            }
+
+            zoom.translate([tx, 0]);
+        }
+
+        function controlZoom(zoom, selection, scale) {
+            var tx = zoom.translate()[0];
+
+            var width = selection.attr('width') || parseInt(selection.style('width'), 10);
+            var xExtent = fc.util.extent(selection.datum().data, ['date']);
+            var min = scale(xExtent[0]);
+            var max = scale(xExtent[1]);
+
+            // If zooming, and about to pan off screen, do nothing
+            if (zoom.scale() !== 1) {
+                if ((min >= 0) && (max - width) <= 0) {
+                    scale.domain(xExtent);
+                    zoom.x(scale);
+                    tx = scale(xExtent[0]);
+                    zoom.translate([tx, 0]);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function zoom(selection) {
+            zoomBehavior.x(zoomScale)
+                .on('zoom', function() {
+                    var maxDomainViewed = controlZoom(zoomBehavior, selection, zoomScale);
+                    controlPan(zoomBehavior, selection, zoomScale);
+
+                    var domain = zoomScale.domain();
+                    if (selection.datum().trackingLive && (zoomBehavior.scale() > 1)) {
+                        domain = sc.util.domain.moveToLatest(zoomScale.domain(), selection.datum().data);
+                    }
+
+                    var panned = (zoomBehavior.scale() === 1)  && !maxDomainViewed;
+                    var zoomed = (zoomBehavior.scale() !== 1) || maxDomainViewed;
+                    if ((panned && allowPan) || (zoomed && allowZoom)) {
+                        dispatch.zoom(domain);
+                    }
+                });
+
+            selection.call(zoomBehavior);
+        }
+
+        zoom.allowPan = function(x) {
+            if (!arguments.length) {
+                return allowPan;
+            }
+            allowPan = x;
+            return zoom;
+        };
+        zoom.allowZoom = function(x) {
+            if (!arguments.length) {
+                return allowZoom;
+            }
+            allowZoom = x;
+            return zoom;
+        };
+
+        d3.rebind(zoom, dispatch, 'on');
+
+        return zoom;
+    };
+})(d3, fc, sc);
+(function(d3, fc, sc) {
+    'use strict';
     /* Credit to Chris Price for this optimisation
     http://blog.scottlogic.com/2015/08/06/an-adventure-in-svg-filter-land.html
     */
@@ -1135,147 +1405,178 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    // Set SVGs & column padding
-    var container = d3.select('#app-container');
+    sc.app = function() {
 
-    var svgPrimary = container.select('svg.primary');
-    var svgSecondary = container.select('svg.secondary');
-    var svgXAxis = container.select('svg.x-axis');
-    var svgNav = container.select('svg.nav');
+        var app = {};
 
-    var dataModel = {
-        data: [],
-        period: 60 * 60 * 24,
-        trackingLive: true,
-        viewDomain: []
-    };
+        var container = d3.select('#app-container');
+        var svgPrimary = container.select('svg.primary');
+        var svgSecondary = container.selectAll('svg.secondary');
+        var svgXAxis = container.select('svg.x-axis');
+        var svgNav = container.select('svg.nav');
 
-    var primaryChart = sc.chart.primaryChart();
-    var secondaryChart = null;
-    var xAxis = sc.chart.xAxis();
-    var navChart = sc.chart.navChart();
+        var dataModel = {
+            data: [],
+            period: 60 * 60 * 24,
+            trackingLive: true,
+            viewDomain: []
+        };
 
-    function render() {
-        svgPrimary.datum(dataModel)
-            .call(primaryChart);
+        var primaryChart = sc.chart.primary();
+        var secondaryCharts = [];
+        var xAxis = sc.chart.xAxis();
+        var nav = sc.chart.nav();
 
-        if (secondaryChart) {
+        function render() {
+            svgPrimary.datum(dataModel)
+                .call(primaryChart);
+
             svgSecondary.datum(dataModel)
-                .call(secondaryChart);
+                .filter(function(d, i) { return i < secondaryCharts.length; })
+                .each(function(d, i) {
+                    d3.select(this)
+                        .attr('class', 'chart secondary ' + secondaryCharts[i].valueString)
+                        .call(secondaryCharts[i].option);
+                });
+
+            svgXAxis.datum(dataModel)
+                .call(xAxis);
+
+            svgNav.datum(dataModel)
+                .call(nav);
         }
 
-        svgXAxis.datum(dataModel)
-            .call(xAxis);
+        function updateLayout() {
+            sc.util.dimensions.layout(container, secondaryCharts);
+        }
 
-        svgNav.datum(dataModel)
-            .call(navChart);
-    }
-
-    function resize() {
-        sc.util.dimensions.layout(container, secondaryChart);
-        render();
-    }
-
-    function onViewChanged(domain) {
-        dataModel.viewDomain = [domain[0], domain[1]];
-        dataModel.trackingLive = sc.util.domain.trackingLiveData(dataModel.viewDomain, dataModel.data);
-        render();
-    }
-
-    function resetToLive() {
-        var data = dataModel.data;
-        var extent = fc.util.extent(data, 'date');
-        var timeExtent = (extent[1].getTime() - extent[0].getTime()) / 1000;
-        var navTimeExtent = timeExtent / 5;
-        var latest = data[data.length - 1].date;
-        var navTimeDomain = [d3.time.second.offset(latest, -navTimeExtent), latest];
-        onViewChanged(navTimeDomain);
-    }
-
-    primaryChart.on('viewChange', onViewChanged);
-    xAxis.on('viewChange', onViewChanged);
-    navChart.on('viewChange', onViewChanged);
-
-    var dataInterface = sc.data.dataInterface()
-        .on('messageReceived', function(socketEvent, data) {
-            if (socketEvent.type === 'error' ||
-                (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
-                console.log('Error loading data from coinbase websocket: ' +
-                socketEvent.type + ' ' + socketEvent.code);
-            } else if (socketEvent.type === 'message') {
-                dataModel.data = data;
-                if (dataModel.trackingLive) {
-                    var newDomain = sc.util.domain.shiftToLiveData(dataModel.viewDomain, dataModel.data);
-                    onViewChanged(newDomain);
-                }
-            }
-            render();
-        })
-        .on('dataLoaded', function(err, data) {
-            if (err) {
-                console.log('Error getting historic data: ' + err);
-            } else {
-                dataModel.data = data;
-                resetToLive();
+        function initialiseResize() {
+            d3.select(window).on('resize', function() {
+                updateLayout();
                 render();
-            }
-        });
+            });
+        }
 
-    var headMenu = sc.menu.head()
-        .on('dataTypeChange', function(type) {
-            if (type === 'bitcoin') {
-                dataModel.period = container.select('#period-selection').property('value');
-                dataInterface(dataModel.period);
-            } else if (type === 'generated') {
-                dataInterface.generateData();
-                dataModel.period = 60 * 60 * 24;
-            }
-        })
-        .on('periodChange', function(period) {
-            dataModel.period = period;
-            dataInterface(dataModel.period);
-        })
-        .on('resetToLive', resetToLive)
-        .on('toggleSlideout', function() {
-            container.selectAll('.row-offcanvas-right').classed('active',
-                !container.selectAll('.row-offcanvas-right').classed('active'));
-        });
-
-    container.selectAll('.head-menu')
-        .call(headMenu);
-
-    var sideMenu = sc.menu.side()
-        .on('primaryChartSeriesChange', function(series) {
-            primaryChart.changeSeries(series);
-            /* Elements are drawn in the order they appear in the HTML - at this minute,
-            D3FC doesn't maintain the ordering of elements, so it's easiest to just
-            remove them and re-write them to the DOM in the correct order. */
-            svgPrimary.selectAll('.multi')
-                .remove();
+        function onViewChanged(domain) {
+            dataModel.viewDomain = [domain[0], domain[1]];
+            dataModel.trackingLive = sc.util.domain.trackingLiveData(dataModel.viewDomain, dataModel.data);
             render();
-        })
-        .on('primaryChartIndicatorChange', function(indicator) {
-            primaryChart.toggleIndicator(indicator);
-            svgPrimary.selectAll('.multi')
-                .remove();
-            render();
-        })
-        .on('secondaryChartChange', function(chart) {
-            secondaryChart = chart.option;
-            svgSecondary.selectAll('*')
-                .remove();
-            if (secondaryChart) {
-                secondaryChart.on('viewChange', onViewChanged);
-            }
-            resize();
-        });
+        }
 
-    container.selectAll('.sidebar-menu')
-        .call(sideMenu);
+        function initialiseChartEventHandlers() {
+            primaryChart.on('viewChange', onViewChanged);
+            nav.on('viewChange', onViewChanged);
+        }
 
-    d3.select(window).on('resize', resize);
+        function resetToLive() {
+            var data = dataModel.data;
+            var dataDomain = fc.util.extent(data, 'date');
+            var navTimeDomain = sc.util.domain.moveToLatest(dataDomain, data, 0.2);
+            onViewChanged(navTimeDomain);
+        }
 
-    dataInterface.generateData();
-    sc.util.dimensions.layout(container, secondaryChart);
-    resetToLive();
+        function initialiseDataInterface() {
+            var dataInterface = sc.data.dataInterface()
+                .on('messageReceived', function(socketEvent, data) {
+                    if (socketEvent.type === 'error' ||
+                        (socketEvent.type === 'close' && socketEvent.code !== 1000)) {
+                        console.log('Error loading data from coinbase websocket: ' +
+                        socketEvent.type + ' ' + socketEvent.code);
+                    } else if (socketEvent.type === 'message') {
+                        dataModel.data = data;
+                        if (dataModel.trackingLive) {
+                            var newDomain = sc.util.domain.moveToLatest(dataModel.viewDomain, dataModel.data);
+                            onViewChanged(newDomain);
+                        }
+                    }
+                })
+                .on('dataLoaded', function(err, data) {
+                    if (err) {
+                        console.log('Error getting historic data: ' + err);
+                    } else {
+                        dataModel.data = data;
+                        resetToLive();
+                    }
+                });
+            return dataInterface;
+        }
+
+        function initialiseHeadMenu(dataInterface) {
+            var headMenu = sc.menu.head()
+                .on('dataTypeChange', function(type) {
+                    if (type === 'bitcoin') {
+                        dataModel.period = container.select('#period-selection').property('value');
+                        dataInterface(dataModel.period);
+                    } else if (type === 'generated') {
+                        dataInterface.generateData();
+                        dataModel.period = 60 * 60 * 24;
+                    }
+                })
+                .on('periodChange', function(period) {
+                    dataModel.period = period;
+                    dataInterface(dataModel.period);
+                })
+                .on('resetToLive', resetToLive)
+                .on('toggleSlideout', function() {
+                    container.selectAll('.row-offcanvas-right').classed('active',
+                        !container.selectAll('.row-offcanvas-right').classed('active'));
+                });
+
+            container.select('.head-menu')
+                .call(headMenu);
+        }
+
+        function initialiseSideMenu() {
+            var sideMenu = sc.menu.side()
+                .on('primaryChartSeriesChange', function(series) {
+                    primaryChart.changeSeries(series);
+                    render();
+                })
+                .on('primaryChartYValueAccessorChange', function(yValueAccessor) {
+                    primaryChart.changeYValueAccessor(yValueAccessor);
+                    render();
+                })
+                .on('primaryChartIndicatorChange', function(toggledIndicator) {
+                    primaryChart.toggleIndicator(toggledIndicator);
+                    render();
+                })
+                .on('secondaryChartChange', function(toggledChart) {
+                    if (secondaryCharts.indexOf(toggledChart.option) !== -1 && !toggledChart.toggled) {
+                        secondaryCharts.splice(secondaryCharts.indexOf(toggledChart.option), 1);
+                    } else if (toggledChart.toggled) {
+                        toggledChart.option.option.on('viewChange', onViewChanged);
+                        secondaryCharts.push(toggledChart.option);
+                    }
+                    svgSecondary.selectAll('*').remove();
+                    updateLayout();
+                    render();
+                });
+
+            container.select('.sidebar-menu')
+                .call(sideMenu);
+        }
+
+        app.run = function() {
+            initialiseChartEventHandlers();
+
+            var dataInterface = initialiseDataInterface();
+            initialiseHeadMenu(dataInterface);
+            initialiseSideMenu();
+
+            initialiseResize();
+
+            updateLayout();
+
+            dataInterface.generateData();
+        };
+
+        return app;
+    };
+})(d3, fc, sc);
+
+(function(d3, fc, sc) {
+    'use strict';
+
+    sc.app().run();
+
 })(d3, fc, sc);

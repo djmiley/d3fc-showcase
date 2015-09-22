@@ -6806,6 +6806,29 @@ button.close {
 .plot-area {
   overflow: hidden;
 }
+
+.axes-container {
+  overflow: visible;
+}
+
+.label {
+  text-anchor: middle;
+}
+
+.y-axis.right .label,
+.x-axis.top .label,
+.y-axis.left .label,
+.title .label {
+  dominant-baseline: hanging;
+}
+
+.x-axis.bottom .label {
+  dominant-baseline: ideographic;
+}
+
+.cartesian-chart {
+  overflow: visible;
+}
 /* Default Chart Styles */
 .chart {
 }
@@ -6967,22 +6990,54 @@ body {
   height: 100%;
   width: 100%;
 }
-.sidebar-menu #type-selection,
-.sidebar-menu #period-selection {
+.chart rect.foreground {
+  opacity: 0 !important;
+}
+.head-menu #type-selection,
+.head-menu #period-selection {
   min-width: 0;
   width: auto;
   display: inline;
   vertical-align: middle;
 }
-.sidebar-menu [id*="-buttons"] {
+.sidebar-menu .btn-group {
   padding-top: 15px;
 }
-#head-row {
-  width: 100%;
+.sidebar-menu .btn-group .active {
+  background-color: #5cb85c;
+  color: #ffffff;
+}
+.head-row {
   padding-top: 10px;
   padding-bottom: 8px;
   background-color: #f0f8ff;
   border-bottom: 2px solid #b0c4de;
+}
+.primary path.line {
+  stroke: #1a9af9;
+}
+.primary path.line.movingAverage {
+  stroke: #ff00ff;
+}
+.primary path.down {
+  stroke: #000000;
+  fill: #cc6600;
+}
+.primary path.up {
+  stroke: #000000;
+  fill: #66cc00;
+}
+.primary .upper > path.line {
+  stroke: #cc6600;
+}
+.primary .lower > path.line {
+  stroke: #66cc00;
+}
+.primary .average > path.line {
+  visibility: hidden;
+}
+.primary .area > path.area {
+  fill: #d3d3d3;
 }
 .closeLine text {
   fill: #ffffff;
@@ -6991,44 +7046,20 @@ body {
   stroke: #1a9af9;
   fill: #1a9af9;
 }
-.plot-area path.line {
-  stroke: #1a9af9;
+.secondary .x-axis path {
+  stroke: #fefefe;
 }
-.plot-area path.line.movingAverage {
-  stroke: #ff00ff;
+.secondary.secondary-rsi .right-handle text {
+  display: none;
 }
-.plot-area path.down {
-  stroke: #000000;
-  fill: #cc6600;
-}
-.plot-area path.up {
-  stroke: #000000;
-  fill: #66cc00;
-}
-.plot-area .upper > path.line {
-  stroke: #cc6600;
-}
-.plot-area .lower > path.line {
-  stroke: #66cc00;
-}
-.plot-area .average > path.line {
-  visibility: hidden;
-}
-.plot-area .area > path.area {
-  fill: #d3d3d3;
-}
-#secondary-row > .col-chart {
-  padding-right: calc(15px + 45px);
-}
-#x-axis-row {
+.x-axis-row {
   height: 20px;
 }
-#x-axis-row .chart {
+.x-axis-row .chart {
   padding-right: 45px;
 }
-#nav-row {
+.nav-row {
   height: 100px;
-  width: 100%;
 }
 .nav .extent {
   stroke: #d1d1e0;
