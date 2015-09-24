@@ -6,8 +6,8 @@
             ratio = 1;
         }
         var dataExtent = fc.util.extent(data, 'date');
-        var dataTimeExtent = (dataExtent[1].getTime() - dataExtent[0].getTime()) / 1000;
-        var domainTimeExtent = ratio * (domain[1].getTime() - domain[0].getTime()) / 1000;
+        var dataTimeExtent = sc.util.timeExtent(dataExtent);
+        var domainTimeExtent = ratio * sc.util.timeExtent(domain);
         var latest = data[data.length - 1].date;
         var scaledLiveDataDomain = domainTimeExtent < dataTimeExtent ?
             [d3.time.second.offset(latest, -domainTimeExtent), latest] : dataExtent;

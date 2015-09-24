@@ -10,6 +10,7 @@
 
         var allowPan = true;
         var allowZoom = true;
+        var minimumViewableTime = 0;
         var trackingLatest = true;
 
         function controlPan(zoomExtent) {
@@ -38,7 +39,12 @@
             var xExtent = fc.util.extent(selection.datum().data, ['date']);
             var width = selection.attr('width') || parseInt(selection.style('width'), 10);
 
+            var domain;
+
             zoomBehavior.x(scale)
+                .on('zoomstart', function() {
+                    domain = scale.domain();
+                })
                 .on('zoom', function() {
                     var min = scale(xExtent[0]);
                     var max = scale(xExtent[1]);
@@ -47,14 +53,17 @@
                     var panningRestriction = controlPan([min, max - width]);
                     translateXZoom(panningRestriction);
 
+                    if (sc.util.timeExtent(scale.domain()) > minimumViewableTime) {
+                        domain = scale.domain();
+                    }
+
                     var panned = (zoomBehavior.scale() === 1);
                     var zoomed = (zoomBehavior.scale() !== 1);
 
-                    var domain = scale.domain();
                     if (maxDomainViewed) {
                         domain = xExtent;
                     } else if (zoomed && trackingLatest) {
-                        domain = sc.util.domain.moveToLatest(scale.domain(), selection.datum().data);
+                        domain = sc.util.domain.moveToLatest(domain, selection.datum().data);
                     }
                     if ((panned && allowPan) || (zoomed && allowZoom)) {
                         dispatch.zoom(domain);
@@ -85,6 +94,14 @@
                 return trackingLatest;
             }
             trackingLatest = x;
+            return zoom;
+        };
+
+        zoom.minimumViewableTime = function(x) {
+            if (!arguments.length) {
+                return minimumViewableTime;
+            }
+            minimumViewableTime = x;
             return zoom;
         };
 

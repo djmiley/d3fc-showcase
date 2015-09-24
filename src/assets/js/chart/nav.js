@@ -39,13 +39,31 @@
             navTimeSeries.xDomain(fc.util.extent(model.data, 'date'))
                 .yDomain(yExtent);
 
+            // Allow to zoom using mouse, but disable panning
+            var zoom = sc.behavior.zoom()
+                .scale(viewScale)
+                .minimumViewableTime(5 * model.period)
+                .trackingLatest(model.trackingLatest)
+                .allowPan(false)
+                .on('zoom', function(domain) {
+                    dispatch.viewChange(domain);
+                });
+
             brush.on('brush', function() {
-                if (brush.extent()[0][0] - brush.extent()[1][0] !== 0) {
+                var minimumViewableTime = zoom.minimumViewableTime();
+                var brushTimeExtent = sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]);
+
+                if (Math.abs(brushTimeExtent) >= minimumViewableTime) {
                     dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                } else if (Math.abs(brushTimeExtent) > 0) {
+                    var centeredDate = new Date((brush.extent()[1][0].getTime() + brush.extent()[0][0].getTime()) / 2);
+                    var centeredDomain = [d3.time.second.offset(centeredDate, -minimumViewableTime / 2),
+                        d3.time.second.offset(centeredDate, +minimumViewableTime / 2)];
+                    dispatch.viewChange(sc.util.domain.centerOnDate(centeredDomain, model.data, centeredDate));
                 }
             })
             .on('brushend', function() {
-                if (brush.extent()[0][0] - brush.extent()[1][0] === 0) {
+                if (sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]) === 0) {
                     dispatch.viewChange(sc.util.domain.centerOnDate(viewScale.domain(),
                         model.data, brush.extent()[0][0]));
                 }
@@ -53,15 +71,6 @@
 
             navTimeSeries.plotArea(navMulti);
             selection.call(navTimeSeries);
-
-            // Allow to zoom using mouse, but disable panning
-            var zoom = sc.behavior.zoom()
-                .scale(viewScale)
-                .trackingLatest(selection.datum().trackingLatest)
-                .allowPan(false)
-                .on('zoom', function(domain) {
-                    dispatch.viewChange(domain);
-                });
 
             selection.call(zoom);
         }

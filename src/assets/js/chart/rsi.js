@@ -42,7 +42,8 @@
 
             var zoom = sc.behavior.zoom()
                 .scale(rsiTimeSeries.xScale())
-                .trackingLatest(selection.datum().trackingLatest)
+                .minimumViewableTime(5 * model.period)
+                .trackingLatest(model.trackingLatest)
                 .on('zoom', function(domain) {
                     dispatch.viewChange(domain);
                 });

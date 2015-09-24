@@ -56,10 +56,10 @@
             selection.call(createForeground);
             var foreground = selection.select('rect.foreground');
 
-
             var zoom = sc.behavior.zoom()
                 .scale(macdTimeSeries.xScale())
-                .trackingLatest(selection.datum().trackingLatest)
+                .minimumViewableTime(5 * model.period)
+                .trackingLatest(model.trackingLatest)
                 .on('zoom', function(domain) {
                     dispatch.viewChange(domain);
                 });
