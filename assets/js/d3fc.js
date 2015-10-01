@@ -125,7 +125,11 @@
         return layout;
     }
 
-    d3.selection.prototype.layout = function(name, value) {
+    function layoutAdapter(name, value) {
+        // Quick bodge to fix #568
+        if (this.node() == null) {
+            return this;
+        }
         var layout = _layout();
         var n = arguments.length;
         if (n === 2) {
@@ -135,7 +139,7 @@
                 this.call(layout);
             } else {
                 // layout(name, value) - sets a layout- attribute
-                this.attr('layout-css', name + ':' + value);
+                this.node().setAttribute('layout-css', name + ':' + value);
             }
         } else if (n === 1) {
             if (typeof name !== 'string') {
@@ -146,17 +150,20 @@
                         return property + ':' + styleObject[property];
                     })
                     .join(';');
-                this.attr('layout-css', layoutCss);
+                this.node().setAttribute('layout-css', layoutCss);
             } else {
                 // layout(name) - returns the value of the layout-name attribute
-                return Number(this.attr('layout-' + name));
+                return Number(this.node().getAttribute('layout-' + name));
             }
         } else if (n === 0) {
             // layout() - executes layout
             this.call(layout);
         }
         return this;
-    };
+    }
+
+    d3.selection.prototype.layout = layoutAdapter;
+    d3.transition.prototype.layout = layoutAdapter;
 
     function noSnap(xScale, yScale) {
         return function(xPixel, yPixel) {
@@ -280,33 +287,34 @@
      * be rebound.
      */
     function rebindAll(target, source, prefix, exclusions) {
-        if (arguments.length === 3) {
-            // if only three args are supplied, there are no exclusions
-            exclusions = [];
-        } else if (arguments.length === 4) {
-            // if four args are supplied, check exclusions is an array, if not
-            // assume it is a single string and construct an array
-            if (!Array.isArray(exclusions)) {
-                exclusions = [exclusions];
-            }
-        } else {
-            // for > 4 args, construct the exclusions
-            var args = Array.prototype.slice.call(arguments);
-            exclusions = args.slice(3);
+        // if exclusions isn't an array, construct it
+        if (!(arguments.length === 4 && Array.isArray(exclusions))) {
+            exclusions = Array.prototype.slice.call(arguments, 3);
         }
 
-        exclusions.forEach(function(property) {
-            if (!source.hasOwnProperty(property)) {
-                throw new Error('The method ' + property + ' does not exist on the source object');
+        exclusions = exclusions.map(function(exclusion) {
+            if (typeof(exclusion) === 'string') {
+                if (!source.hasOwnProperty(exclusion)) {
+                    throw new Error('The method ' + exclusion + ' does not exist on the source object');
+                }
+                exclusion = new RegExp('^' + exclusion + '$');
             }
+            return exclusion;
         });
+
+        function exclude(property) {
+            return exclusions.some(function(exclusion) {
+                return property.match(exclusion);
+            });
+        }
 
         var bindings = {};
         for (var property in source) {
-            if (source.hasOwnProperty(property) && exclusions.indexOf(property) === -1) {
+            if (source.hasOwnProperty(property) && !exclude(property)) {
                 bindings[prefix + capitalizeFirstLetter(property)] = property;
             }
         }
+
         rebind(target, source, bindings);
     }
 
@@ -1676,7 +1684,8 @@
 
         var x = function(d, i) { return d.x; },
             y = function(d, i) { return d.y; },
-            align = 'center',
+            horizontalAlign = 'center',
+            verticalAlign = 'center',
             height = function(d, i) { return d.height; },
             width = d3.functor(3);
 
@@ -1688,24 +1697,38 @@
                     barHeight = height.call(this, d, index || i),
                     barWidth = width.call(this, d, index || i);
 
-                var offset;
-
-                switch (align) {
+                var horizontalOffset;
+                switch (horizontalAlign) {
                     case 'left':
-                        offset = barWidth;
+                        horizontalOffset = barWidth;
                         break;
                     case 'right':
-                        offset = 0;
+                        horizontalOffset = 0;
                         break;
                     case 'center':
-                        offset = barWidth / 2;
+                        horizontalOffset = barWidth / 2;
                         break;
                     default:
-                        throw new Error('Invalid alignment');
+                        throw new Error('Invalid horizontal alignment ' + horizontalAlign);
+                }
+
+                var verticalOffset;
+                switch (verticalAlign) {
+                    case 'bottom':
+                        verticalOffset = -barHeight;
+                        break;
+                    case 'top':
+                        verticalOffset = 0;
+                        break;
+                    case 'center':
+                        verticalOffset = barHeight / 2;
+                        break;
+                    default:
+                        throw new Error('Invalid vertical alignment ' + verticalAlign);
                 }
 
                 // Move to the start location
-                var body = 'M' + (xValue - offset) + ',' + yValue +
+                var body = 'M' + (xValue - horizontalOffset) + ',' + (yValue - verticalOffset) +
                     // Draw the width
                     'h' + barWidth +
                     // Draw to the top
@@ -1740,11 +1763,11 @@
             width = d3.functor(x);
             return bar;
         };
-        bar.align = function(x) {
+        bar.horizontalAlign = function(x) {
             if (!arguments.length) {
-                return align;
+                return horizontalAlign;
             }
-            align = x;
+            horizontalAlign = x;
             return bar;
         };
         bar.height = function(x) {
@@ -1752,6 +1775,13 @@
                 return height;
             }
             height = d3.functor(x);
+            return bar;
+        };
+        bar.verticalAlign = function(x) {
+            if (!arguments.length) {
+                return verticalAlign;
+            }
+            verticalAlign = x;
             return bar;
         };
         return bar;
@@ -2108,62 +2138,121 @@
         });
     }
 
+    // The bar series renders a vertical (column) or horizontal (bar) series. In order
+    // to provide a common implementation there are a number of functions that specialise
+    // the rendering logic based on the 'orient' property.
     function _bar() {
 
         var decorate = noop,
             xScale = d3.time.scale(),
             yScale = d3.scale.linear(),
-            y1Value = function(d, i) { return d.close; },
-            xValue = function(d, i) { return d.date; },
+            xValue = function(d, i) { return orient === 'vertical' ? d.date : d.close; },
+            yValue = function(d, i) { return orient === 'vertical' ? d.close : d.date; },
             y0Value = d3.functor(0),
-            barWidth = fractionalBarWidth(0.75);
+            x0Value = d3.functor(0),
+            barWidth = fractionalBarWidth(0.75),
+            orient = 'vertical',
+            pathGenerator = bar();
 
         var dataJoin$$ = dataJoin()
             .selector('g.bar')
-            .element('g')
-            .attr('class', 'bar');
+            .element('g');
 
-        var xValueScaled = function(d, i) { return xScale(xValue(d, i)); };
+        var x = function(d, i) { return xScale(xValue(d, i)); },
+            y = function(d, i) { return yScale(yValue(d, i)); },
+            y0 = function(d, i) { return yScale(y0Value(d, i)); },
+            x0 = function(d, i) { return xScale(x0Value(d, i)); };
+
+        function containerTranslation(d, i) {
+            if (orient === 'vertical') {
+                return 'translate(' + x(d, i) + ', ' + y0(d, i) + ')';
+            } else {
+                return 'translate(' + x0(d, i) + ', ' + y(d, i) + ')';
+            }
+        }
+
+        function barHeight(d, i) {
+            if (orient === 'vertical') {
+                return y(d, i) - y0(d, i);
+            } else {
+                return x(d, i) - x0(d, i);
+            }
+        }
+
+        function isDatapointValid(d, i) {
+            if (orient === 'vertical') {
+                return y0Value(d, i) !== undefined &&
+                    yValue(d, i) !== undefined &&
+                    xValue(d, i) !== undefined;
+            } else {
+                return x0Value(d, i) !== undefined &&
+                    xValue(d, i) !== undefined &&
+                    yValue(d, i) !== undefined;
+            }
+        }
+
+        function valueAxisDimension(pathGenerator) {
+            if (orient === 'vertical') {
+                return pathGenerator.height;
+            } else {
+                return pathGenerator.width;
+            }
+        }
+
+        function crossAxisDimension(pathGenerator) {
+            if (orient === 'vertical') {
+                return pathGenerator.width;
+            } else {
+                return pathGenerator.height;
+            }
+        }
+
+        function crossAxisValueFunction() {
+            return orient === 'vertical' ? x : y;
+        }
 
         var bar$$ = function(selection) {
             selection.each(function(data, index) {
 
-                var filteredData = data.filter(function(d, i) {
-                    return y0Value(d, i) !== undefined &&
-                        y1Value(d, i) !== undefined &&
-                        xValue(d, i) !== undefined;
-                });
+                if (orient !== 'vertical' && orient !== 'horizontal') {
+                    throw new Error('The bar series does not support an orientation of ' + orient);
+                }
+
+                dataJoin$$.attr('class', 'bar ' + orient);
+
+                var filteredData = data.filter(isDatapointValid);
+
+                pathGenerator.x(0)
+                    .y(0)
+                    .width(0)
+                    .height(0);
+
+                if (orient === 'vertical') {
+                    pathGenerator.verticalAlign('top');
+                } else {
+                    pathGenerator.horizontalAlign('right');
+                }
+
+                // set the width of the bars
+                var width = barWidth(filteredData.map(crossAxisValueFunction()));
+                crossAxisDimension(pathGenerator)(width);
 
                 var g = dataJoin$$(this, filteredData);
 
-                var width = barWidth(filteredData.map(xValueScaled));
-
-                var pathGenerator = bar()
-                    .x(0)
-                    .y(0)
-                    .width(width)
-                    .height(0);
-
-                var x = function(d, i) { return xValueScaled(d, i); },
-                    y1 = function(d, i) { return yScale(y1Value(d, i)); },
-                    y0 = function(d, i) { return yScale(y0Value(d, i)); };
-
+                // within the enter selection the pathGenerator creates a zero
+                // height bar. As a result, when used with a transition the bar grows
+                // from y0 to y1 (y)
                 g.enter()
-                    .attr('transform', function(d, i) {
-                        return 'translate(' + x(d, i) + ', ' + y0(d, i) + ')';
-                    })
+                    .attr('transform', containerTranslation)
                     .append('path')
                     .attr('d', function(d) { return pathGenerator([d]); });
 
-                g.each(function(d, i) {
-                    pathGenerator.height(y0(d, i) - y1(d, i));
+                // set the bar to its correct height
+                valueAxisDimension(pathGenerator)(barHeight);
 
-                    var barGroup = d3.select(this);
-                    d3.transition(barGroup)
-                        .attr('transform', 'translate(' + x(d, i) + ', ' + y1(d, i) + ')')
-                        .select('path')
-                        .attr('d', pathGenerator([d]));
-                });
+                g.attr('transform', containerTranslation)
+                    .select('path')
+                    .attr('d', function(d) { return pathGenerator([d]); });
 
                 decorate(g, filteredData, index);
             });
@@ -2190,13 +2279,6 @@
             yScale = x;
             return bar$$;
         };
-        bar$$.xValue = function(x) {
-            if (!arguments.length) {
-                return xValue;
-            }
-            xValue = x;
-            return bar$$;
-        };
         bar$$.y0Value = function(x) {
             if (!arguments.length) {
                 return y0Value;
@@ -2204,11 +2286,25 @@
             y0Value = d3.functor(x);
             return bar$$;
         };
+        bar$$.x0Value = function(x) {
+            if (!arguments.length) {
+                return x0Value;
+            }
+            x0Value = d3.functor(x);
+            return bar$$;
+        };
         bar$$.yValue = bar$$.y1Value = function(x) {
             if (!arguments.length) {
-                return y1Value;
+                return yValue;
             }
-            y1Value = x;
+            yValue = x;
+            return bar$$;
+        };
+        bar$$.xValue = bar$$.x1Value = function(x) {
+            if (!arguments.length) {
+                return xValue;
+            }
+            xValue = x;
             return bar$$;
         };
         bar$$.barWidth = function(x) {
@@ -2216,6 +2312,13 @@
                 return barWidth;
             }
             barWidth = d3.functor(x);
+            return bar$$;
+        };
+        bar$$.orient = function(x) {
+            if (!arguments.length) {
+                return orient;
+            }
+            orient = x;
             return bar$$;
         };
 
@@ -2757,22 +2860,26 @@
 
                 var g = dataJoin$$(this, [data]);
 
+                var translation;
                 switch (axisAdapter.orient()) {
                     case 'top':
                     case 'bottom':
-                        g.attr('transform', 'translate(0,' + yScale(baseline(data)) + ')');
+                        translation = 'translate(0,' + yScale(baseline(data)) + ')';
                         axis$$.scale(xScale);
                         break;
 
                     case 'left':
                     case 'right':
-                        g.attr('transform', 'translate(' + xScale(baseline(data)) + ',0)');
+                        translation = 'translate(' + xScale(baseline(data)) + ',0)';
                         axis$$.scale(yScale);
                         break;
 
                     default:
                         throw new Error('Invalid orientation');
                 }
+
+                g.enter().attr('transform', translation);
+                g.attr('transform', translation);
 
                 g.call(axis$$);
 
@@ -3686,22 +3793,21 @@
 
     function _exponentialMovingAverage() {
 
-        var ema = calculator()
-                .accumulator(d3.mean)
+        var ema = exponentialMovingAverage()
                 .value(function(d) { return d.close; });
 
         var mergedAlgorithm = merge()
                 .algorithm(ema)
                 .merge(function(datum, ma) { datum.exponentialMovingAverage = ma; });
 
-        var exponentialMovingAverage = function(data) {
+        var exponentialMovingAverage$$ = function(data) {
             return mergedAlgorithm(data);
         };
 
-        d3.rebind(exponentialMovingAverage, mergedAlgorithm, 'merge');
-        d3.rebind(exponentialMovingAverage, ema, 'windowSize', 'value');
+        d3.rebind(exponentialMovingAverage$$, mergedAlgorithm, 'merge');
+        d3.rebind(exponentialMovingAverage$$, ema, 'windowSize', 'value');
 
-        return exponentialMovingAverage;
+        return exponentialMovingAverage$$;
     }
 
     function percentageChange() {
@@ -4398,31 +4504,52 @@
             },
             yLabel = '',
             xLabel = '',
+            xBaseline = null,
+            yBaseline = null,
             chartLabel = '',
             plotArea = _line(),
             decorate = noop;
 
+        // Each axis-series has a cross-scale which is defined as an identity
+        // scale. If no baseline function is supplied, the axis is positioned
+        // using the cross-scale range extents. If a baseline function is supplied
+        // it is transformed via the respective scale.
         var xAxis = _axis()
             .orient('bottom')
             .baseline(function() {
-                var domain = yScale.domain();
-                return xAxis.orient() === 'bottom' ? domain[0] : domain[1];
+                if (xBaseline !== null) {
+                    return yScale(xBaseline.apply(this, arguments));
+                } else {
+                    var r = range(yScale);
+                    return xAxis.orient() === 'bottom' ? r[0] : r[1];
+                }
             });
 
         var yAxis = _axis()
             .orient('right')
             .baseline(function() {
-                var domain = xScale.domain();
-                return yAxis.orient() === 'right' ? domain[1] : domain[0];
+                if (yBaseline !== null) {
+                    return xScale(yBaseline.apply(this, arguments));
+                } else {
+                    var r = range(xScale);
+                    return yAxis.orient() === 'left' ? r[0] : r[1];
+                }
             });
-
-        var axesSeries = _multi()
-            .series([xAxis, yAxis]);
 
         var containerDataJoin = dataJoin()
             .selector('svg.cartesian-chart')
             .element('svg')
             .attr({'class': 'cartesian-chart', 'layout-css': 'flex: 1'});
+
+        // Ordinal and quantitative scales have different methods for setting the range. This
+        // function detects the scale type and sets the range accordingly.
+        function setScaleRange(scale, range) {
+            if (isOrdinal(scale)) {
+                scale.rangePoints(range, 1);
+            } else {
+                scale.range(range);
+            }
+        }
 
         var cartesianChart = function(selection) {
 
@@ -4451,7 +4578,10 @@
                         <rect class="background" \
                             layout-css="position: absolute; top: 0; bottom: 0; left: 0; right: 0"/> \
                         <svg class="axes-container" \
-                            layout-css="position: absolute; top: 0; bottom: 0; left: 0; right: 0"/> \
+                            layout-css="position: absolute; top: 0; bottom: 0; left: 0; right: 0"> \
+                            <g class="x-axis" layout-css="height: 0; width: 0"/> \
+                            <g class="y-axis" layout-css="height: 0; width: 0"/> \
+                        </svg> \
                         <svg class="plot-area" \
                             layout-css="position: absolute; top: 0; bottom: 0; left: 0; right: 0"/> \
                     </g>');
@@ -4515,14 +4645,21 @@
 
                 // set the axis ranges
                 var plotAreaContainer = svg.select('.plot-area');
-                xScale.range([0, plotAreaContainer.layout('width')]);
-                yScale.range([plotAreaContainer.layout('height'), 0]);
+                setScaleRange(xScale, [0, plotAreaContainer.layout('width')]);
+                setScaleRange(yScale, [plotAreaContainer.layout('height'), 0]);
 
                 // render the axes
-                var axesContainer = svg.select('.axes-container');
-                axesSeries.xScale(xScale)
-                    .yScale(yScale);
-                axesContainer.call(axesSeries);
+                xAxis.xScale(xScale)
+                    .yScale(d3.scale.identity());
+
+                yAxis.yScale(yScale)
+                    .xScale(d3.scale.identity());
+
+                svg.select('.axes-container .x-axis')
+                    .call(xAxis);
+
+                svg.select('.axes-container .y-axis')
+                    .call(yAxis);
 
                 // render the plot area
                 plotArea.xScale(xScale)
@@ -4534,15 +4671,33 @@
         };
 
         var scaleExclusions = [
-            'range', 'rangeRound', // the scale range is set via the component layout
-            'tickFormat'           // use axis.tickFormat instead
+            /range\w*/,   // the scale range is set via the component layout
+            /tickFormat/  // use axis.tickFormat instead (only present on linear scales)
         ];
         rebindAll(cartesianChart, xScale, 'x', scaleExclusions);
         rebindAll(cartesianChart, yScale, 'y', scaleExclusions);
 
-        rebindAll(cartesianChart, xAxis, 'x');
-        rebindAll(cartesianChart, yAxis, 'y');
+        var axisExclusions = [
+            'baseline',         // the axis baseline is adapted so is not exposed directly
+            'xScale', 'yScale'  // these are set by this components
+        ];
+        rebindAll(cartesianChart, xAxis, 'x', axisExclusions);
+        rebindAll(cartesianChart, yAxis, 'y', axisExclusions);
 
+        cartesianChart.xBaseline = function(x) {
+            if (!arguments.length) {
+                return xBaseline;
+            }
+            xBaseline = d3.functor(x);
+            return cartesianChart;
+        };
+        cartesianChart.yBaseline = function(x) {
+            if (!arguments.length) {
+                return yBaseline;
+            }
+            yBaseline = d3.functor(x);
+            return cartesianChart;
+        };
         cartesianChart.chartLabel = function(x) {
             if (!arguments.length) {
                 return chartLabel;
@@ -4730,7 +4885,8 @@
                     .classed('band', true);
 
                 var pathGenerator = bar()
-                    .align('right')
+                    .horizontalAlign('right')
+                    .verticalAlign('top')
                     .x(x0Scaled)
                     .y(y0Scaled)
                     .height(function() {
@@ -4822,7 +4978,7 @@
     };
 
     // Needs to be defined like this so that the grunt task can update it
-    var version = '1.2.0';
+    var version = '1.3.0';
 
     var fc = {
         annotation: annotation,
