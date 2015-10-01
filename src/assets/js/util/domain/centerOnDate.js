@@ -2,6 +2,10 @@
     'use strict';
 
     sc.util.domain.centerOnDate = function(domain, data, centerDate) {
+        if (arguments.length < 3) {
+            centerDate = new Date((domain[1].getTime() + domain[0].getTime()) / 2);
+        }
+
         var dataExtent = fc.util.extent(data, 'date');
         var domainTimeExtent = (domain[1].getTime() - domain[0].getTime()) / 1000;
 
