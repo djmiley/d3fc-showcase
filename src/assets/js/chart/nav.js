@@ -50,7 +50,9 @@
                 });
 
             brush.on('brush', function() {
-                dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                if (sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]) !== 0) {
+                    dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                }
             })
             .on('brushend', function() {
                 var minimumViewableTime = zoom.minimumViewableTime();
@@ -63,7 +65,7 @@
                         brush.extent()[0][0].getTime()) / 2);
                     var centeredDomain = [d3.time.second.offset(centeredDate, -minimumViewableTime / 2),
                         d3.time.second.offset(centeredDate, +minimumViewableTime / 2)];
-                    dispatch.viewChange(sc.util.domain.centerOnDate(centeredDomain, model.data, centeredDate));               
+                    dispatch.viewChange(sc.util.domain.centerOnDate(centeredDomain, model.data, centeredDate));
                 }
             });
 
