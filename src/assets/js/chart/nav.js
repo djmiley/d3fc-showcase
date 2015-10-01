@@ -50,32 +50,20 @@
                 });
 
             brush.on('brush', function() {
+                dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+            })
+            .on('brushend', function() {
                 var minimumViewableTime = zoom.minimumViewableTime();
                 var brushTimeExtent = sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]);
-
-                if (brushTimeExtent >= minimumViewableTime) {
-                    dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
-                } else if (brushTimeExtent !== 0) {
-                    if (false) {
-                        //LHS NOT MOVED
-                        dispatch.viewChange([brush.extent()[0][0], d3.time.second.offset(brush.extent()[0][0],
-                            minimumViewableTime)]);
-                    } else {
-                        // RHS NOT MOVED
-                        dispatch.viewChange([d3.time.second.offset(brush.extent()[1][0], -minimumViewableTime),
-                            brush.extent()[1][0]]);
-                    }
-                    /*var centeredDate = new Date((brush.extent()[1][0].getTime() +
+                if (brushTimeExtent === 0) {
+                    dispatch.viewChange(sc.util.domain.centerOnDate(viewScale.domain(),
+                        model.data, brush.extent()[0][0]));
+                } else if (brushTimeExtent < minimumViewableTime) {
+                    var centeredDate = new Date((brush.extent()[1][0].getTime() +
                         brush.extent()[0][0].getTime()) / 2);
                     var centeredDomain = [d3.time.second.offset(centeredDate, -minimumViewableTime / 2),
                         d3.time.second.offset(centeredDate, +minimumViewableTime / 2)];
-                    dispatch.viewChange(sc.util.domain.centerOnDate(centeredDomain, model.data, centeredDate));*/
-                }
-            })
-            .on('brushend', function() {
-                if (sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]) === 0) {
-                    dispatch.viewChange(sc.util.domain.centerOnDate(viewScale.domain(),
-                        model.data, brush.extent()[0][0]));
+                    dispatch.viewChange(sc.util.domain.centerOnDate(centeredDomain, model.data, centeredDate));               
                 }
             });
 
