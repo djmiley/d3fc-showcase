@@ -8,12 +8,24 @@
             'primaryChartIndicatorChange',
             'secondaryChartChange');
 
-        var candlestick = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
-        var ohlc = sc.menu.option('OHLC', 'ohlc', fc.series.ohlc());
-        var line = sc.menu.option('Line', 'line', fc.series.line());
-        line.option.isLine = true;
-        var point = sc.menu.option('Point', 'point', fc.series.point());
-        var area = sc.menu.option('Area', 'area', fc.series.area());
+        var candlestick = sc.menu.primary.option(sc.menu.option('Candlestick', 'candlestick',
+            sc.series.candlestick()),
+            [function(d) { return d.low; },
+            function(d) { return d.high; }]);
+        var ohlc = sc.menu.primary.option(sc.menu.option('OHLC', 'ohlc',
+            fc.series.ohlc()),
+            [function(d) { return d.low; },
+            function(d) { return d.high; }]);
+        var line = sc.menu.primary.option(sc.menu.option('Line', 'line',
+            fc.series.line()),
+            [function(d) { return d.close; }],
+            'line');
+        var point = sc.menu.primary.option(sc.menu.option('Point', 'point',
+            fc.series.point()),
+            [function(d) { return d.close; }]);
+        var area = sc.menu.primary.option(sc.menu.option('Area', 'area',
+            fc.series.area()),
+            [function(d) { return d.close; }]);
 
         var primaryChartSeriesOptions = sc.menu.group()
             .formOptionListFromCollection([candlestick, ohlc, line, point, area], fc.util.fn.identity)
@@ -40,7 +52,6 @@
                     .classed('movingAverage', true);
             })
             .yValue(function(d) { return d.movingAverage; });
-        movingAverage.isLine = true;
 
         var exponentialMovingAverage = fc.series.line()
             .decorate(function(select) {
@@ -48,14 +59,19 @@
                     .classed('exponentialMovingAverage', true);
             })
             .yValue(function(d) { return d.exponentialMovingAverage; });
-        exponentialMovingAverage.isLine = true;
 
-        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage',
-            movingAverage);
-        var exponentialMovingAverageIndicator = sc.menu.option('EMA', 'exponentialMovingAverage',
-            exponentialMovingAverage);
-        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger',
-            fc.indicator.renderer.bollingerBands());
+        var movingAverageIndicator = sc.menu.primary.option(sc.menu.option('Moving Average', 'movingAverage',
+            movingAverage),
+            [function(d) { return d.movingAverage; }],
+            'movingAverage');
+        var exponentialMovingAverageIndicator = sc.menu.primary.option(sc.menu.option('EMA', 'exponentialMovingAverage',
+            exponentialMovingAverage),
+            [function(d) { return d.exponentialMovingAverage; }],
+            'exponentialMovingAverage');
+        var bollingerIndicator = sc.menu.primary.option(sc.menu.option('Bollinger Bands', 'bollinger',
+            fc.indicator.renderer.bollingerBands()),
+            [function(d) { return d.bollingerBands.lower; },
+            function(d) { return d.bollingerBands.upper; }]);
 
         var primaryChartIndicatorToggle = sc.menu.group()
             .formOptionListFromCollection([movingAverageIndicator, bollingerIndicator], fc.util.fn.identity)

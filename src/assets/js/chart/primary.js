@@ -25,49 +25,14 @@
         return annotatedTickValues;
     }
 
-    function findTotalYExtent(visibleData, currentSeries, currentIndicators) {
-        var extentAccessor;
-        switch (currentSeries.valueString) {
-            case 'candlestick':
-            case 'ohlc':
-                extentAccessor = [currentSeries.option.yLowValue(), currentSeries.option.yHighValue()];
-                break;
-            case 'line':
-            case 'point':
-                extentAccessor = currentSeries.option.yValue();
-                break;
-            case 'area' :
-                extentAccessor = currentSeries.option.y1Value();
-                break;
-            default:
-                throw new Error('Main series given to chart does not have expected interface');
-        }
-        var extent = fc.util.extent(visibleData, extentAccessor);
+    function findTotalYExtent(visibleData, multiSeries) {
+        var extent = [];
 
-        if (currentIndicators.length) {
-            var indicators = currentIndicators.map(function(indicator) { return indicator.valueString; });
-            var movingAverageShown = (indicators.indexOf('movingAverage') !== -1);
-            var exponentialMovingAverageShown = (indicators.indexOf('exponentialMovingAverage') !== -1);
-            var bollingerBandsShown = (indicators.indexOf('bollinger') !== -1);
-            if (bollingerBandsShown) {
-                var bollingerBandsVisibleDataObject = visibleData.map(function(d) { return d.bollingerBands; });
-                var bollingerBandsExtent = fc.util.extent(bollingerBandsVisibleDataObject, ['lower', 'upper']);
-                extent[0] = d3.min([bollingerBandsExtent[0], extent[0]]);
-                extent[1] = d3.max([bollingerBandsExtent[1], extent[1]]);
-            }
-            if (movingAverageShown) {
-                var movingAverageExtent = fc.util.extent(visibleData, 'movingAverage');
-                extent[0] = d3.min([movingAverageExtent[0], extent[0]]);
-                extent[1] = d3.max([movingAverageExtent[1], extent[1]]);
-            }
-            if (exponentialMovingAverageShown) {
-                var exponentialMovingAverageExtent = fc.util.extent(visibleData, 'exponentialMovingAverage');
-                extent[0] = Math.min(exponentialMovingAverageExtent[0], extent[0]);
-                extent[1] = Math.max(exponentialMovingAverageExtent[1], extent[1]);
-            }
-            if (!(movingAverageShown || exponentialMovingAverageShown || bollingerBandsShown)) {
-                throw new Error('Unexpected indicator type');
-            }
+        for (var i = 0; i < multiSeries.length; i++) {
+            var indicatorExtentAccessor = multiSeries[i].extentAccessor;
+            var indicatorExtent = fc.util.extent(visibleData, indicatorExtentAccessor);
+            extent[0] = d3.min([indicatorExtent[0], extent[0]]);
+            extent[1] = d3.max([indicatorExtent[1], extent[1]]);
         }
         return extent;
     }
@@ -79,8 +44,11 @@
         var yAxisWidth = 45;
         var dispatch = d3.dispatch('viewChange', 'crosshairChange');
 
-        var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
-        var currentYValueAccessor = function(d) { return d.close; };
+        var currentSeries = sc.menu.primary.option(sc.menu.option('Candlestick', 'candlestick',
+            sc.series.candlestick()),
+            [function(d) { return d.low; },
+            function(d) { return d.high; }]);
+        var currentIndicatorYValueAccessor = function(d) { return d.close; };
         var currentIndicators = [];
 
 
@@ -94,13 +62,13 @@
             .xTicks(0);
         var closeLine = fc.annotation.line()
             .orient('horizontal')
-            .value(currentYValueAccessor)
+            .value(function(d) { return d.close; })
             .label('');
 
         var multi = fc.series.multi()
             .key(function(series, index) {
-                if (series.isLine) {
-                    return index;
+                if (series.lineIdentifier) {
+                    return series.lineIdentifier;
                 }
                 return series;
             })
@@ -143,20 +111,10 @@
             series(series().concat(crosshair));
         }
 
-        function updateYValueAccessorUsed() {
-            movingAverage.value(currentYValueAccessor);
-            exponentialMovingAverage.value(currentYValueAccessor);
-            bollingerAlgorithm.value(currentYValueAccessor);
-            closeLine.value(currentYValueAccessor);
-            switch (currentSeries.valueString) {
-                case 'line':
-                case 'point':
-                case 'area':
-                    currentSeries.option.yValue(currentYValueAccessor);
-                    break;
-                default:
-                    break;
-            }
+        function updateIndicatorYValueAccessorUsed() {
+            movingAverage.value(currentIndicatorYValueAccessor);
+            exponentialMovingAverage.value(currentIndicatorYValueAccessor);
+            bollingerAlgorithm.value(currentIndicatorYValueAccessor);
         }
 
         function setCrosshairSnap(series, data) {
@@ -174,7 +132,7 @@
 
             primaryChart.xDomain(model.viewDomain);
 
-            updateYValueAccessorUsed();
+            updateIndicatorYValueAccessorUsed();
             updateMultiSeries(multi.series);
             setCrosshairSnap(currentSeries.option, model.data);
 
@@ -184,13 +142,13 @@
 
             // Scale y axis
             var visibleData = sc.util.domain.filterDataInDateRange(primaryChart.xDomain(), model.data);
-            var yExtent = findTotalYExtent(visibleData, currentSeries, currentIndicators);
+            var yExtent = findTotalYExtent(visibleData, multi.series());
             // Add percentage padding either side of extreme high/lows
             var paddedYExtent = sc.util.domain.padYDomain(yExtent, 0.04);
             primaryChart.yDomain(paddedYExtent);
 
             // Find current tick values and add close price to this list, then set it explicitly below
-            var latestPrice = currentYValueAccessor(model.data[model.data.length - 1]);
+            var latestPrice = model.data[model.data.length - 1].close;
             var tickValues = produceAnnotatedTickValues(yScale, [latestPrice]);
             primaryChart.yTickValues(tickValues)
                 .yDecorate(function(s) {
@@ -225,7 +183,7 @@
         };
 
         primary.changeYValueAccessor = function(yValueAccessor) {
-            currentYValueAccessor = yValueAccessor.option;
+            currentIndicatorYValueAccessor = yValueAccessor.option;
             return primary;
         };
 
