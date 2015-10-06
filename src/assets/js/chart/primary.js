@@ -46,7 +46,7 @@
 
         if (currentIndicators.length) {
             var indicators = currentIndicators.map(function(indicator) { return indicator.valueString; });
-            var movingAverageShown = (indicators.indexOf('movingAverage') !== -1);
+            var movingAverageShown = (indicators.indexOf('moving-average') !== -1);
             var bollingerBandsShown = (indicators.indexOf('bollinger') !== -1);
             if (bollingerBandsShown) {
                 var bollingerBandsVisibleDataObject = visibleData.map(function(d) { return d.bollingerBands; });
@@ -72,7 +72,6 @@
         var dispatch = d3.dispatch('viewChange');
 
         var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
-        var currentYValueAccessor = function(d) { return d.close; };
         var currentIndicators = [];
 
         var gridlines = fc.annotation.gridline()
@@ -80,7 +79,7 @@
             .xTicks(0);
         var closeLine = fc.annotation.line()
             .orient('horizontal')
-            .value(currentYValueAccessor)
+            .value(function(d) { return d.close; })
             .label('');
 
         var multi = fc.series.multi()
@@ -120,40 +119,50 @@
             .rightMargin(yAxisWidth);
 
         // Create and apply the Moving Average
-        var movingAverage = fc.indicator.algorithm.movingAverage();
+        var movingAverageAlgorithm = fc.indicator.algorithm.movingAverage();
         var bollingerAlgorithm = fc.indicator.algorithm.bollingerBands();
 
-        function updateMultiSeries() {
-            var baseChart = [gridlines, currentSeries.option, closeLine];
-            var indicators = currentIndicators.map(function(indicator) { return indicator.option; });
-            multi.series(baseChart.concat(indicators));
+        function updatePrimaryModel(model) {
+            currentSeries = model.primary.series;
+            currentIndicators = model.indicators.filter(function(indicator) { return !indicator.option.isChart; });
+            updateIndicators(currentIndicators);
+            movingAverageAlgorithm(model.data);
+            bollingerAlgorithm(model.data);
         }
 
-        function updateYValueAccessorUsed() {
-            movingAverage.value(currentYValueAccessor);
-            bollingerAlgorithm.value(currentYValueAccessor);
-            closeLine.value(currentYValueAccessor);
-            switch (currentSeries.valueString) {
-                case 'line':
-                case 'point':
-                case 'area':
-                    currentSeries.option.yValue(currentYValueAccessor);
-                    break;
-                default:
-                    break;
+        function updateIndicators(indicators) {
+            var keyedIndicators = indicators.map(function(indicator) { return indicator.valueString; });
+            if (keyedIndicators.indexOf('moving-average') !== -1) {
+                updateMovingAverageConfig(indicators[keyedIndicators.indexOf('moving-average')]
+                    .option.config);
             }
+            if (keyedIndicators.indexOf('bollinger') !== -1) {
+                updateBollingerBandsConfig(indicators[keyedIndicators.indexOf('bollinger')]
+                    .option.config);
+            }
+        }
+
+        function updateMovingAverageConfig(config) {
+            movingAverageAlgorithm.value(config.yValueAccessor.option);
+        }
+
+        function updateBollingerBandsConfig(config) {
+            bollingerAlgorithm.value(config.yValueAccessor.option);
+        }
+
+        function updatedMultiSeries() {
+            var baseChart = [gridlines, currentSeries.option, closeLine];
+            var indicators = currentIndicators.map(function(indicator) { return indicator.option; });
+            var multiSeries = baseChart.concat(indicators);
+            return multiSeries;
         }
 
         function primary(selection) {
             var model = selection.datum();
+            updatePrimaryModel(model);
+            multi.series(updatedMultiSeries());
 
             primaryChart.xDomain(model.viewDomain);
-
-            updateYValueAccessorUsed();
-            updateMultiSeries();
-
-            movingAverage(model.data);
-            bollingerAlgorithm(model.data);
 
             // Scale y axis
             var visibleData = sc.util.domain.filterDataInDateRange(primaryChart.xDomain(), model.data);
@@ -163,7 +172,7 @@
             primaryChart.yDomain(paddedYExtent);
 
             // Find current tick values and add close price to this list, then set it explicitly below
-            var latestPrice = currentYValueAccessor(model.data[model.data.length - 1]);
+            var latestPrice = model.data[model.data.length - 1].close;
             var tickValues = produceAnnotatedTickValues(yScale, [latestPrice]);
             primaryChart.yTickValues(tickValues)
                 .yDecorate(function(s) {
@@ -194,25 +203,6 @@
         }
 
         d3.rebind(primary, dispatch, 'on');
-
-        primary.changeSeries = function(series) {
-            currentSeries = series;
-            return primary;
-        };
-
-        primary.changeYValueAccessor = function(yValueAccessor) {
-            currentYValueAccessor = yValueAccessor.option;
-            return primary;
-        };
-
-        primary.toggleIndicator = function(indicator) {
-            if (currentIndicators.indexOf(indicator.option) !== -1 && !indicator.toggled) {
-                currentIndicators.splice(currentIndicators.indexOf(indicator.option), 1);
-            } else if (indicator.toggled) {
-                currentIndicators.push(indicator.option);
-            }
-            return primary;
-        };
 
         return primary;
     };

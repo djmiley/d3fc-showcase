@@ -7,68 +7,33 @@
 
         var container = d3.select('#app-container');
         var svgPrimary = container.select('svg.primary');
-        var svgSecondary = container.selectAll('svg.secondary');
+        var secondaryChartsContainer = container.select('#secondary-charts-container');
         var svgXAxis = container.select('svg.x-axis');
         var svgNav = container.select('svg.nav');
 
+        var headMenuDiv = container.select('.head-menu');
+        var sideMenuDiv = container.select('.sidebar-menu');
+
         var model = {
             data: [],
-            period: 60 * 60 * 24,
+            indicators: [],
+            period: sc.menu.option('Daily', '86400', 86400),
+            product: sc.menu.option('Data Generator', 'generated', 'generated'),
+            primary: {
+                series: sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick())
+            },
+            selectedIndicator: undefined,
             trackingLatest: true,
             viewDomain: []
         };
 
         var primaryChart = sc.chart.primary();
-        var secondaryCharts = [];
         var xAxis = sc.chart.xAxis();
         var nav = sc.chart.nav();
-
-        function render() {
-            svgPrimary.datum(model)
-                .call(primaryChart);
-
-            svgSecondary.datum(model)
-                .filter(function(d, i) { return i < secondaryCharts.length; })
-                .each(function(d, i) {
-                    d3.select(this)
-                        .attr('class', 'chart secondary ' + secondaryCharts[i].valueString)
-                        .call(secondaryCharts[i].option);
-                });
-
-            svgXAxis.datum(model)
-                .call(xAxis);
-
-            svgNav.datum(model)
-                .call(nav);
-        }
-
-        function updateLayout() {
-            sc.util.layout(container, secondaryCharts);
-        }
-
-        function initialiseResize() {
-            d3.select(window).on('resize', function() {
-                updateLayout();
-                render();
-            });
-        }
-
-        function onViewChanged(domain) {
-            model.viewDomain = [domain[0], domain[1]];
-            model.trackingLatest = sc.util.domain.trackingLatestData(model.viewDomain, model.data);
-            render();
-        }
 
         function initialiseChartEventHandlers() {
             primaryChart.on('viewChange', onViewChanged);
             nav.on('viewChange', onViewChanged);
-        }
-
-        function resetToLive() {
-            var data = model.data;
-            var dataDomain = fc.util.extent(data, 'date');
-            var navTimeDomain = sc.util.domain.moveToLatest(dataDomain, data, 0.2);
-            onViewChanged(navTimeDomain);
         }
 
         function initialiseDataInterface() {
@@ -97,22 +62,23 @@
             return dataInterface;
         }
 
-        function initialiseHeadMenu(dataInterface) {
+        function initialiseHeadMenu() {
             var headMenu = sc.menu.head()
                 .on('dataProductChange', function(product) {
+                    model.product = product;
                     if (product.option === 'bitcoin') {
-                        var periodDropdown = container.select('#period-dropdown');
+                        var periodDropdown = container.select('#period-dropdown').select('.form-control');
                         model.period = periodDropdown.selectAll('option')[0]
-                            [periodDropdown.node().selectedIndex].__data__.option;
-                        dataInterface(model.period);
+                            [periodDropdown[0][0].selectedIndex].__data__;
+                        dataInterface(model.period.option);
                     } else if (product.option === 'generated') {
                         dataInterface.generateData();
-                        model.period = 60 * 60 * 24;
+                        model.period = sc.menu.option('Daily', '86400', 86400);
                     }
                 })
                 .on('dataPeriodChange', function(period) {
-                    model.period = period.option;
-                    dataInterface(model.period);
+                    model.period = period;
+                    dataInterface(model.period.option);
                 })
                 .on('resetToLive', resetToLive)
                 .on('toggleSlideout', function() {
@@ -120,51 +86,121 @@
                         !container.selectAll('.row-offcanvas-right').classed('active'));
                 });
 
-            container.select('.head-menu')
-                .call(headMenu);
+            return headMenu;
         }
 
         function initialiseSideMenu() {
             var sideMenu = sc.menu.side()
                 .on('primaryChartSeriesChange', function(series) {
-                    primaryChart.changeSeries(series);
+                    model.primary.series = series;
                     render();
                 })
-                .on('primaryChartYValueAccessorChange', function(yValueAccessor) {
-                    primaryChart.changeYValueAccessor(yValueAccessor);
-                    render();
-                })
-                .on('primaryChartIndicatorChange', function(toggledIndicator) {
-                    primaryChart.toggleIndicator(toggledIndicator);
-                    render();
-                })
-                .on('secondaryChartChange', function(toggledChart) {
-                    if (secondaryCharts.indexOf(toggledChart.option) !== -1 && !toggledChart.toggled) {
-                        secondaryCharts.splice(secondaryCharts.indexOf(toggledChart.option), 1);
-                    } else if (toggledChart.toggled) {
-                        toggledChart.option.option.on('viewChange', onViewChanged);
-                        secondaryCharts.push(toggledChart.option);
+                .on('addIndicator', function(indicator) {
+                    model.selectedIndicator = indicator;
+                    if (model.indicators.indexOf(indicator) === -1) {
+                        model.indicators.push(indicator);
+                        if (indicator.option.isChart) {
+                            indicator.option.on('viewChange', onViewChanged);
+                        }
+                        initialiseSecondaryChartContainerLayout();
+                        updateLayout();
+                        render();
                     }
-                    svgSecondary.selectAll('*').remove();
-                    updateLayout();
+                })
+                .on('configureIndicator', function(configuredIndicator) {
+                    var keyedIndicators = model.indicators.map(function(indicator) { return indicator.valueString; });
+                    var index = keyedIndicators.indexOf(configuredIndicator.valueString);
+                    model.indicators[index] = configuredIndicator;
                     render();
+                })
+                .on('removeIndicator', function(indicator) {
+                    if (model.indicators.indexOf(indicator) !== -1) {
+                        model.indicators.splice(model.indicators.indexOf(indicator), 1);
+                        initialiseSecondaryChartContainerLayout();
+                        updateLayout();
+                        render();
+                    }
                 });
 
-            container.select('.sidebar-menu')
+            return sideMenu;
+        }
+
+        var dataInterface = initialiseDataInterface();
+        var headMenu = initialiseHeadMenu(dataInterface);
+        var sideMenu = initialiseSideMenu();
+
+        function initialiseSecondaryChartContainerLayout() {
+            var secondaryCharts = model.indicators.filter(function(d) { return d.option.isChart; });
+            var htmlGenerator = sc.util.generateSecondaryChartColDivs()
+                .clearHTML(true)
+                .active(container.selectAll('.row-offcanvas-right').classed('active'))
+                .numberofSecondaryCharts(secondaryCharts.length);
+            secondaryChartsContainer.call(htmlGenerator);
+        }
+
+        function updateLayout() {
+            sc.util.layout(container);
+        }
+
+        function renderMenus() {
+            headMenuDiv.datum(model)
+                .call(headMenu);
+
+            sideMenuDiv.datum(model)
                 .call(sideMenu);
+        }
+
+        function renderCharts() {
+            svgPrimary.datum(model)
+                .call(primaryChart);
+
+            var secondaryCharts = model.indicators.filter(function(d) { return d.option.isChart; });
+            secondaryChartsContainer
+                .selectAll('svg.secondary')
+                .datum(model)
+                .each(function(d, i) {
+                    d3.select(this)
+                        .attr('class', 'chart secondary ' + secondaryCharts[i].valueString)
+                        .call(secondaryCharts[i].option);
+                });
+
+            svgXAxis.datum(model)
+                .call(xAxis);
+
+            svgNav.datum(model)
+                .call(nav);
+        }
+
+        function render() {
+            renderMenus();
+            renderCharts();
+        }
+
+        function initialiseResize() {
+            d3.select(window).on('resize', function() {
+                updateLayout();
+                render();
+            });
+        }
+
+        function onViewChanged(domain) {
+            model.viewDomain = [domain[0], domain[1]];
+            model.trackingLatest = sc.util.domain.trackingLatestData(model.viewDomain, model.data);
+            render();
+        }
+
+        function resetToLive() {
+            var data = model.data;
+            var dataDomain = fc.util.extent(data, 'date');
+            var navTimeDomain = sc.util.domain.moveToLatest(dataDomain, data, 0.2);
+            onViewChanged(navTimeDomain);
         }
 
         app.run = function() {
             initialiseChartEventHandlers();
-
-            var dataInterface = initialiseDataInterface();
-            initialiseHeadMenu(dataInterface);
-            initialiseSideMenu();
-
             initialiseResize();
-
+            renderMenus();
             updateLayout();
-
             dataInterface.generateData();
         };
 

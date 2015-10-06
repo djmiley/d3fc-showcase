@@ -44,7 +44,9 @@
 
         var head = function(selection) {
             selection.each(function() {
-                var selection = d3.select(this);
+                var model = selection.datum();
+                dataProductDropdown.selectedOption(model.product);
+                dataPeriodDropdown.selectedOption(model.period);
                 selection.select('#product-dropdown')
                     .call(dataProductDropdown);
                 selection.select('#period-dropdown')

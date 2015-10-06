@@ -14,9 +14,15 @@
             .attr('class', 'btn btn-default');
 
         function layoutButtons(sel) {
-            var activeValue = defaultValue < sel.datum().length ? defaultValue : 0;
+            var options = sel.datum().option.map(function(d) { return d.valueString; });
+            var activeValue = sel.datum().selectedOption ?
+                options.indexOf(sel.datum().selectedOption.valueString) : 0;
 
-            dataJoin(sel, sel.datum())
+            var btnGroupDiv = sel.append('div')
+                .attr('class', 'btn-group')
+                .attr('data-toggle', 'buttons');
+
+            dataJoin(btnGroupDiv, sel.datum().option)
                 .classed('active', function(d, i) { return (i === activeValue); })
                 .text(function(d) { return d.displayString; })
                 .insert('input')

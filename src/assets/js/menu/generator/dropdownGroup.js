@@ -2,6 +2,7 @@
     'use strict';
 
     sc.menu.generator.dropdownGroup = function() {
+
         var dispatch = d3.dispatch('optionChange');
 
         var dataJoin = fc.util.dataJoin()
@@ -9,20 +10,27 @@
             .element('option');
 
         function layoutDropdown(sel) {
+            var options = sel.datum().option.map(function(d) { return d.valueString; });
+            var activeValue = sel.datum().selectedOption ?
+                options.indexOf(sel.datum().selectedOption.valueString) : 0;
 
-            dataJoin(sel, sel.datum())
+            var formControlDiv = sel.append('select')
+                .attr('class', 'form-control');
+
+            dataJoin(formControlDiv, sel.datum().option)
                 .text(function(d) { return d.displayString; })
                 .attr({
                     value: function(d) { return d.valueString; }
                 })
-                .property('selected', function(d, i) { return (i === 0); });
+                .property('selected', function(d, i) { return (i === activeValue); });
         }
 
         function optionGenerator(selection) {
             selection.call(layoutDropdown);
 
             selection.on('change', function() {
-                    var selectedOption = d3.select(this).selectAll('option')[0][this.selectedIndex].__data__;
+                    var dropdown = selection.select('.form-control');
+                    var selectedOption = dropdown.selectAll('option')[0][dropdown[0][0].selectedIndex].__data__;
                     dispatch.optionChange(selectedOption);
                 });
         }
