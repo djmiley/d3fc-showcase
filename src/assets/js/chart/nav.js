@@ -51,24 +51,24 @@
 
             brush.on('brush', function() {
                 var brushTimeExtent = sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]);
-                /*var minimumViewableTime = zoom.minimumViewableTime();
-                if (brushTimeExtent < sc.util.timeExtent(model.viewDomain)) {
-                    console.log('hoo');
-                    // Enter if making brush width smaller
-                    if (brushTimeExtent > minimumViewableTime) {
-                        dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
-                    } else {
-                        dispatch.viewChange(sc.util.domain.centerOnDate(model.viewDomain, model.data));
-                    }
-                } else if (brushTimeExtent >= sc.util.timeExtent(model.viewDomain)) {
-                    // Enter if making brush width bigger or panning
-                    console.log('hee');
-                    if (brushTimeExtent !== 0) {
-                        dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
-                    }
-                }*/
-                if (brushTimeExtent > 0) {
+                var minimumViewableTime = zoom.minimumViewableTime();
+                var newBrushFormed = (brush.extent()[1][0] < model.viewDomain[0] ||
+                    brush.extent()[0][0] > model.viewDomain[1]);
+                if (newBrushFormed && brushTimeExtent > 0) {
                     dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                } else {
+                    if (brushTimeExtent < sc.util.timeExtent(model.viewDomain)  &&
+                            brushTimeExtent > minimumViewableTime) {
+                        // Enter if making brush width smaller
+                        if (brushTimeExtent > minimumViewableTime) {
+                            dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                        } else {
+                            dispatch.viewChange(sc.util.domain.centerOnDate(model.viewDomain, model.data));
+                        }
+                    } else if (brushTimeExtent >= sc.util.timeExtent(model.viewDomain)) {
+                        // Enter if making brush width bigger or panning
+                        dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                    }
                 }
             })
             .on('brushend', function() {
