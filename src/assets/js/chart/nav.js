@@ -50,8 +50,8 @@
                 });
 
             brush.on('brush', function() {
-                var minimumViewableTime = zoom.minimumViewableTime();
                 var brushTimeExtent = sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]);
+                /*var minimumViewableTime = zoom.minimumViewableTime();
                 if (brushTimeExtent < sc.util.timeExtent(model.viewDomain)) {
                     console.log('hoo');
                     // Enter if making brush width smaller
@@ -66,6 +66,9 @@
                     if (brushTimeExtent !== 0) {
                         dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
                     }
+                }*/
+                if (brushTimeExtent > 0) {
+                    dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
                 }
             })
             .on('brushend', function() {
