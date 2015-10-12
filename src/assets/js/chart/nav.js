@@ -51,23 +51,8 @@
 
             brush.on('brush', function() {
                 var brushTimeExtent = sc.util.timeExtent([brush.extent()[0][0], brush.extent()[1][0]]);
-                var minimumViewableTime = zoom.minimumViewableTime();
-                var newBrushFormed = (brush.extent()[1][0] < model.viewDomain[0] ||
-                    brush.extent()[0][0] > model.viewDomain[1]);
-                if (newBrushFormed && brushTimeExtent > 0) {
+                if (brushTimeExtent > 0) {
                     dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
-                } else {
-                    var swivvleBursh = (brush.extent()[1][0].getTime() === model.viewDomain[0].getTime() ||
-                        brush.extent()[0][0].getTime() === model.viewDomain[1].getTime());
-                    console.log(swivvleBursh);
-                    if (!swivvleBursh) {
-                        if (brushTimeExtent < sc.util.timeExtent(model.viewDomain) &&
-                            brushTimeExtent <= minimumViewableTime) {
-                            dispatch.viewChange(model.viewDomain);
-                        } else {
-                            dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
-                        }
-                    }
                 }
             })
             .on('brushend', function() {
