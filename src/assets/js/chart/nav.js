@@ -57,17 +57,16 @@
                 if (newBrushFormed && brushTimeExtent > 0) {
                     dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
                 } else {
-                    if (brushTimeExtent < sc.util.timeExtent(model.viewDomain)  &&
-                            brushTimeExtent > minimumViewableTime) {
-                        // Enter if making brush width smaller
-                        if (brushTimeExtent > minimumViewableTime) {
-                            dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
+                    var swivvleBursh = (brush.extent()[1][0].getTime() === model.viewDomain[0].getTime() ||
+                        brush.extent()[0][0].getTime() === model.viewDomain[1].getTime());
+                    console.log(swivvleBursh);
+                    if (!swivvleBursh) {
+                        if (brushTimeExtent < sc.util.timeExtent(model.viewDomain) &&
+                            brushTimeExtent <= minimumViewableTime) {
+                            dispatch.viewChange(model.viewDomain);
                         } else {
-                            dispatch.viewChange(sc.util.domain.centerOnDate(model.viewDomain, model.data));
+                            dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
                         }
-                    } else if (brushTimeExtent >= sc.util.timeExtent(model.viewDomain)) {
-                        // Enter if making brush width bigger or panning
-                        dispatch.viewChange([brush.extent()[0][0], brush.extent()[1][0]]);
                     }
                 }
             })
