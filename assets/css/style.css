@@ -6996,16 +6996,16 @@ body {
 .cartesian-chart .axes-container {
   overflow: visible;
 }
-.head-menu .form-control {
+.form-control {
   min-width: 0;
   width: auto;
   display: inline;
   vertical-align: middle;
 }
-.sidebar-menu .btn-group {
-  padding-top: 15px;
+.sidebar-menu {
+  overflow: scroll;
 }
-.sidebar-menu .btn-group .active {
+.sidebar-menu .active {
   background-color: #5cb85c;
   color: #ffffff;
 }
