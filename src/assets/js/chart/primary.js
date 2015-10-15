@@ -30,9 +30,11 @@
 
         for (var i = 0; i < multiSeries.length; i++) {
             var indicatorExtentAccessor = multiSeries[i].extentAccessor;
-            var indicatorExtent = fc.util.extent(visibleData, indicatorExtentAccessor);
-            extent[0] = d3.min([indicatorExtent[0], extent[0]]);
-            extent[1] = d3.max([indicatorExtent[1], extent[1]]);
+            if (indicatorExtentAccessor) {
+                var indicatorExtent = fc.util.extent(visibleData, indicatorExtentAccessor);
+                extent[0] = d3.min([indicatorExtent[0], extent[0]]);
+                extent[1] = d3.max([indicatorExtent[1], extent[1]]);
+            }
         }
         return extent;
     }
@@ -44,10 +46,9 @@
         var yAxisWidth = 45;
         var dispatch = d3.dispatch('viewChange', 'crosshairChange');
 
-        var currentSeries = sc.menu.primary.option(sc.menu.option('Candlestick', 'candlestick',
-            sc.series.candlestick()),
-            [function(d) { return d.low; },
-            function(d) { return d.high; }]);
+        var currentSeries = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
+        currentSeries.option.extentAccessor = [function(d) { return d.low; },
+            function(d) { return d.high; }];
         var currentIndicatorYValueAccessor = function(d) { return d.close; };
         var currentIndicators = [];
 

@@ -8,24 +8,19 @@
             'primaryChartIndicatorChange',
             'secondaryChartChange');
 
-        var candlestick = sc.menu.primary.option(sc.menu.option('Candlestick', 'candlestick',
-            sc.series.candlestick()),
-            [function(d) { return d.low; },
-            function(d) { return d.high; }]);
-        var ohlc = sc.menu.primary.option(sc.menu.option('OHLC', 'ohlc',
-            fc.series.ohlc()),
-            [function(d) { return d.low; },
-            function(d) { return d.high; }]);
-        var line = sc.menu.primary.option(sc.menu.option('Line', 'line',
-            fc.series.line()),
-            [function(d) { return d.close; }],
-            'line');
-        var point = sc.menu.primary.option(sc.menu.option('Point', 'point',
-            fc.series.point()),
-            [function(d) { return d.close; }]);
-        var area = sc.menu.primary.option(sc.menu.option('Area', 'area',
-            fc.series.area()),
-            [function(d) { return d.close; }]);
+        var candlestick = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
+        candlestick.option.extentAccessor = [function(d) { return d.low; },
+            function(d) { return d.high; }];
+        var ohlc = sc.menu.option('OHLC', 'ohlc', fc.series.ohlc());
+        ohlc.option.extentAccessor = [function(d) { return d.low; },
+            function(d) { return d.high; }];
+        var line = sc.menu.option('Line', 'line', fc.series.line());
+        line.option.extentAccessor = [function(d) { return d.close; }];
+        line.option.lineIdentifier = 'line';
+        var point = sc.menu.option('Point', 'point', fc.series.point());
+        point.option.extentAccessor = [function(d) { return d.close; }];
+        var area = sc.menu.option('Area', 'area', fc.series.area());
+        area.option.extentAccessor = [function(d) { return d.close; }];
 
         var primaryChartSeriesOptions = sc.menu.group()
             .formOptionListFromCollection([candlestick, ohlc, line, point, area], fc.util.fn.identity)
@@ -60,21 +55,24 @@
             })
             .yValue(function(d) { return d.exponentialMovingAverage; });
 
-        var movingAverageIndicator = sc.menu.primary.option(sc.menu.option('Moving Average', 'movingAverage',
-            movingAverage),
-            [function(d) { return d.movingAverage; }],
-            'movingAverage');
-        var exponentialMovingAverageIndicator = sc.menu.primary.option(sc.menu.option('EMA', 'exponentialMovingAverage',
-            exponentialMovingAverage),
-            [function(d) { return d.exponentialMovingAverage; }],
-            'exponentialMovingAverage');
-        var bollingerIndicator = sc.menu.primary.option(sc.menu.option('Bollinger Bands', 'bollinger',
-            fc.indicator.renderer.bollingerBands()),
-            [function(d) { return d.bollingerBands.lower; },
-            function(d) { return d.bollingerBands.upper; }]);
+        var movingAverageIndicator = sc.menu.option('Moving Average', 'movingAverage',
+            movingAverage);
+        movingAverageIndicator.option.extentAccessor = [function(d) { return d.movingAverage; }];
+        movingAverageIndicator.option.lineIdentifier = 'movingAverage';
+        var exponentialMovingAverageIndicator = sc.menu.option('EMA', 'exponentialMovingAverage',
+            exponentialMovingAverage);
+        exponentialMovingAverageIndicator.option.extentAccessor = [function(d) { return d.exponentialMovingAverage; }];
+        exponentialMovingAverageIndicator.option.lineIdentifier = 'exponentialMovingAverage';
+        var bollingerIndicator = sc.menu.option('Bollinger Bands', 'bollinger',
+            fc.indicator.renderer.bollingerBands());
+        bollingerIndicator.option.extentAccessor = [function(d) { return d.bollingerBands.lower; },
+            function(d) { return d.bollingerBands.upper; }];
 
         var primaryChartIndicatorToggle = sc.menu.group()
-            .formOptionListFromCollection([movingAverageIndicator, bollingerIndicator], fc.util.fn.identity)
+            .formOptionListFromCollection([movingAverageIndicator,
+                exponentialMovingAverageIndicator,
+                bollingerIndicator],
+                fc.util.fn.identity)
             .generator(sc.menu.generator.toggleGroup())
             .on('optionChange', function(indicator) {
                 dispatch.primaryChartIndicatorChange(indicator);
