@@ -6858,6 +6858,16 @@ button.close {
   fill: none;
   stroke: #06c;
 }
+
+.stochastic-d path.line {
+  fill: none;
+  stroke: red;
+}
+
+.stochastic-k path.line {
+  fill: none;
+  stroke: #06c;
+}
 .candlestick>path {
   stroke: #000;
 }
@@ -6885,19 +6895,16 @@ path.line {
 
 path.area {
   fill: #9cf;
-  fill-opacity: 0.5;
 }
 
 .point>circle {
   stroke: #06c;
   fill: #9cf;
-  fill-opacity: 0.5;
 }
 
 .bar>path {
   stroke: #06c;
   fill: #9cf;
-  fill-opacity: 0.5;
 }
 .domain,
 .tick line,

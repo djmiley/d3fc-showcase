@@ -941,26 +941,34 @@
             indicatorAdditiveDropdown.selectedOption(selectedIndicator);
         }
 
-        var indicator = function(selection) {
-            selection.html('<div id="indicator-add">' +
-                '<div id="indicator-dropdown"></div>' +
-                '</div>' +
-                '<div class="list-indicator"></div>');
-            selection.select('#indicator-add').append('button')
-                .attr({
-                    type: 'button',
-                    id: 'add-indicator-button',
-                    class: 'btn btn-default'
-                })
-                .text('Add Indicator');
+        var buttonDataJoin = fc.util.dataJoin()
+            .selector('button')
+            .element('button')
+            .attr({
+                type: 'button',
+                class: 'btn btn-default'
+            });
 
+        var containerDataJoin = fc.util.dataJoin()
+            .selector('div')
+            .element('div');
+
+        var indicator = function(selection) {
             selection.each(function() {
                 var model = selection.datum();
                 initialiseIndicatorAdditiveDropdown(model.selectedIndicator);
 
+                containerDataJoin(selection, [model])
+                    .html('<div id="indicator-add">' +
+                    '<div id="indicator-dropdown"></div>' +
+                    '</div>' +
+                    '<div class="list-indicator"></div>');
+
                 selection.select('#indicator-dropdown')
                     .call(indicatorAdditiveDropdown);
-                selection.select('#add-indicator-button')
+                buttonDataJoin(selection.select('#indicator-add'), [model])
+                    .attr('id', 'add-indicator-button')
+                    .text('Add Indicator')
                     .on('click', function() {
                         dispatch.addIndicator(selectedIndicator);
                     });
@@ -985,9 +993,9 @@
         var low = sc.menu.option('Low', 'low', function(d) { return d.low; });
         var close = sc.menu.option('Close', 'close', function(d) { return d.close; });
 
-        // var dataJoin = fc.util.dataJoin()
-        //     .selector('div')
-        //     .element('div');
+        var dataJoin = fc.util.dataJoin()
+            .selector('div')
+            .element('div');
 
         var indicatorConfig = function(selection) {
             selection.each(function() {
@@ -1002,18 +1010,9 @@
                             indicator.option.config.yValueAccessor = yValueAccessor;
                             dispatch.configureIndicator(indicator);
                         });
-                    /*dataJoin(selection, indicator)
-                        .attr('id', 'y-value-accessor')
-                        .call(yValueAccessorConfig);*/
-                    selection.selectAll('div')
-                        .data([])
-                        .enter()
-                        .append('div')
+                    dataJoin(selection, [indicator.option.config.yValueAccessor])
                         .attr('id', 'y-value-accessor')
                         .call(yValueAccessorConfig);
-                    // selection.append('div')
-                    //     .attr('id', 'y-value-accessor')
-                    //     .call(yValueAccessorConfig);
                 }
             });
         };
@@ -1040,6 +1039,11 @@
                 dispatch.configureIndicator(indicator);
             });
 
+        var dataJoin = fc.util.dataJoin()
+            .selector('div.list-element')
+            .element('div')
+            .attr('class', 'list-element');
+
         var indicatorList = function(selection) {
             selection.each(function() {
                 var indicators = selection.datum();
@@ -1047,12 +1051,11 @@
 
                 selection.call(removeIndicatorList);
 
-                var listElements = selection.selectAll('div.list-element');
+                var listElements = dataJoin(selection, indicators);
                 listElements.select('.btn')
                     .text('Remove');
-                var configListDiv = listElements.append('div')
-                    .attr('class', 'config');
-                configListDiv.data(indicators)
+                listElements.append('div')
+                    .attr('class', 'config')
                     .each(function(d, i) {
                         d3.select(this)
                             .call(config);
