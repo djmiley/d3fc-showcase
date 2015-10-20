@@ -106,7 +106,7 @@
             .mapping(function(series) {
                 switch (series) {
                     case closeLine:
-                        return [this.data[this.data.length - 1]];
+                        return sc.util.latestData(this.data);
                     case crosshair:
                         return crosshairData;
                     default:
@@ -177,13 +177,13 @@
             primaryChart.yDomain(paddedYExtent);
 
             // Find current tick values and add close price to this list, then set it explicitly below
-            var latestPrice = currentYValueAccessor(model.data[model.data.length - 1]);
-            var tickValues = produceAnnotatedTickValues(yScale, [latestPrice]);
+            var latestPrice = sc.util.latestData(model.data).map(function(d) { return currentYValueAccessor(d); });
+            var tickValues = produceAnnotatedTickValues(yScale, latestPrice);
             primaryChart.yTickFormat(model.product.priceFormat)
                 .yTickValues(tickValues)
                 .yDecorate(function(s) {
                     s.selectAll('.tick')
-                        .filter(function(d) { return d === latestPrice; })
+                        .filter(function(d) { return latestPrice.indexOf(d) !== -1; })
                         .classed('closeLine', true)
                         .select('path')
                         .attr('d', function(d) {

@@ -137,7 +137,7 @@
             secondaryChartModel.data = data;
             navModel.data = data;
             // TODO: probably only want to update this if the user isn't already mousing over with the crosshair
-            legendModel.data = data[data.length - 1];
+            legendModel.data = sc.util.latestData(data)[0];
         }
 
         function updateModelSelectedProduct(product) {
