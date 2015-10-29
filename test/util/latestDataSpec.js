@@ -23,43 +23,18 @@
             shuffledData = [obj(thursday), obj(wednesday), obj(monday), obj(friday), obj(tuesday)];
         });
 
-        it('should return a single latest data point in an array if it is unique', function() {
+        it('should return a single latest data point in an array', function() {
             var latestDatum = sc.util.latestData(data);
 
-            expect(latestDatum.length).toBe(1);
-            expect(latestDatum[0].date).toEqual(friday);
+            expect(latestDatum.date).toEqual(friday);
 
             var shuffledLatestDatum = sc.util.latestData(shuffledData);
 
-            expect(shuffledLatestDatum.length).toBe(1);
-            expect(shuffledLatestDatum[0].date).toEqual(friday);
+            expect(shuffledLatestDatum.date).toEqual(friday);
         });
 
-        it('should return the multiple latest data points in an array if there are more than one', function() {
-            // Set obj(friday) to obj(thursday) so there are multiple latest datums
-            data[4] = obj(thursday);
-
-            var latestDatum = sc.util.latestData(data);
-
-            expect(latestDatum.length).toBe(2);
-            expect(latestDatum[0].date).toEqual(thursday);
-            expect(latestDatum[1].date).toEqual(thursday);
-
-            // Set obj(friday) to obj(thursday) so there are multiple latest datums
-            shuffledData[3] = obj(thursday);
-
-            var shuffledLatestDatum = sc.util.latestData(shuffledData);
-
-            expect(shuffledLatestDatum.length).toBe(2);
-            expect(shuffledLatestDatum[0].date).toEqual(thursday);
-            expect(shuffledLatestDatum[1].date).toEqual(thursday);
-        });
-
-        it('should return an empty array if nothing is passed into the function', function() {
-            var emptyArray = sc.util.latestData([]);
-
-            expect(emptyArray.length).toBe(0);
-            expect(emptyArray).toEqual([]);
+        it('should return undefined if nothing is passed into the function', function() {
+            expect(sc.util.latestData([])).toBe(undefined);
         });
 
     });

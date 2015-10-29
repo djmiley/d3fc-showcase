@@ -177,13 +177,13 @@
             primaryChart.yDomain(paddedYExtent);
 
             // Find current tick values and add close price to this list, then set it explicitly below
-            var latestPrice = sc.util.latestData(model.data).map(function(d) { return currentYValueAccessor(d); });
-            var tickValues = produceAnnotatedTickValues(yScale, latestPrice);
+            var latestPrice = currentYValueAccessor(sc.util.latestData(model.data));
+            var tickValues = produceAnnotatedTickValues(yScale, [latestPrice]);
             primaryChart.yTickFormat(model.product.priceFormat)
                 .yTickValues(tickValues)
                 .yDecorate(function(s) {
                     s.selectAll('.tick')
-                        .filter(function(d) { return latestPrice.indexOf(d) !== -1; })
+                        .filter(function(d) { return d === latestPrice; })
                         .classed('closeLine', true)
                         .select('path')
                         .attr('d', function(d) {
