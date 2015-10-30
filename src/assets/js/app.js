@@ -133,19 +133,22 @@
             });
         }
 
-        function onViewChange(domain) {
-            var viewDomain = [domain[0], domain[1]];
+        function onViewChange(unpaddedDomain) {
+            var trackingLatest = sc.util.domain.trackingLatestData(
+                unpaddedDomain,
+                primaryChartModel.data);
+            primaryChartModel.trackingLatest = trackingLatest;
+            secondaryChartModel.trackingLatest = trackingLatest;
+            navModel.trackingLatest = trackingLatest;
+
+            var viewDomain = primaryChartModel.series.option.isPadded ?
+                sc.util.domain.padTimeExtent(unpaddedDomain, primaryChartModel.data, xAxisModel.period.seconds / 2) :
+                unpaddedDomain;
             primaryChartModel.viewDomain = viewDomain;
             secondaryChartModel.viewDomain = viewDomain;
             xAxisModel.viewDomain = viewDomain;
             navModel.viewDomain = viewDomain;
 
-            var trackingLatest = sc.util.domain.trackingLatestData(
-                primaryChartModel.viewDomain,
-                primaryChartModel.data);
-            primaryChartModel.trackingLatest = trackingLatest;
-            secondaryChartModel.trackingLatest = trackingLatest;
-            navModel.trackingLatest = trackingLatest;
             render();
         }
 
@@ -254,9 +257,17 @@
         function initialiseSideMenu() {
             return sc.menu.side()
                 .on(sc.event.primaryChartSeriesChange, function(series) {
+                    var unpaddedDomain = primaryChartModel.series.option.isPadded ?
+                        sc.util.domain.padTimeExtent(primaryChartModel.viewDomain,
+                        primaryChartModel.data, -xAxisModel.period.seconds / 2) :
+                        primaryChartModel.viewDomain;
                     primaryChartModel.series = series;
+                    primaryChartModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
+                    secondaryChartModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
+                    xAxisModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
+                    navModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
                     selectOption(series, sideMenuModel.seriesOptions);
-                    render();
+                    onViewChange(unpaddedDomain);
                 })
                 .on(sc.event.primaryChartYValueAccessorChange, function(yValueAccessor) {
                     primaryChartModel.yValueAccessor = yValueAccessor;

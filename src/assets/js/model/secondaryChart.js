@@ -5,6 +5,7 @@
         return {
             data: [],
             viewDomain: [],
+            padding: 24 * 60 * 60 / 2,
             trackingLatest: true,
             product: initialProduct
         };

@@ -20,6 +20,7 @@
                 var paddedYExtent = sc.util.domain.padYDomain([minYExtent, maxYExtent], 0.04);
                 chart.yTickFormat(model.product.volumeFormat)
                     .trackingLatest(model.trackingLatest)
+                    .padding(model.padding)
                     .xDomain(model.viewDomain)
                     .yDomain(paddedYExtent);
 

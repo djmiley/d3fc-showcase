@@ -10,6 +10,7 @@
 
         var allowPan = true;
         var allowZoom = true;
+        var padding = 0;
         var trackingLatest = true;
 
         function controlPan(zoomExtent) {
@@ -40,13 +41,17 @@
 
         function zoom(selection) {
 
-            var xExtent = fc.util.extent()
-                .fields('date')(selection.datum().data);
-
             zoomBehavior.x(scale)
                 .on('zoom', function() {
-                    var min = scale(xExtent[0]);
-                    var max = scale(xExtent[1]);
+                    var xExtent = fc.util.extent()
+                        .fields('date')(selection.datum().data);
+                    var paddedXExtent = padding ? sc.util.domain.padTimeExtent(xExtent,
+                        selection.datum().data, padding) : xExtent;
+
+                    var width = selection.attr('layout-width');
+
+                    var min = scale(paddedXExtent[0]);
+                    var max = scale(paddedXExtent[1]);
 
                     var maxDomainViewed = controlZoom([min, max - width]);
                     var panningRestriction = controlPan([min, max - width]);
@@ -56,15 +61,17 @@
                     var zoomed = (zoomBehavior.scale() !== 1);
 
                     if ((panned && allowPan) || (zoomed && allowZoom)) {
-                        var domain = scale.domain();
+                        var unpaddedDomain = padding ? sc.util.domain.padTimeExtent(scale.domain(),
+                            selection.datum().data, -padding) : scale.domain();
                         if (maxDomainViewed) {
-                            domain = xExtent;
+                            unpaddedDomain = fc.util.extent()
+                                .fields('date')(selection.datum().data);
                         } else if (zoomed && trackingLatest) {
-                            domain = sc.util.domain.moveToLatest(domain, selection.datum().data);
+                            unpaddedDomain = sc.util.domain.moveToLatest(unpaddedDomain, selection.datum().data);
                         }
 
-                        if (domain[0].getTime() !== domain[1].getTime()) {
-                            dispatch.zoom(domain);
+                        if (unpaddedDomain[0].getTime() !== unpaddedDomain[1].getTime()) {
+                            dispatch.zoom(unpaddedDomain);
                         } else {
                             // Ensure the user can't zoom-in infinitely, causing the chart to fail to render
                             // #168, #411
@@ -91,6 +98,14 @@
                 return allowZoom;
             }
             allowZoom = x;
+            return zoom;
+        };
+
+        zoom.padding = function(x) {
+            if (!arguments.length) {
+                return padding;
+            }
+            padding = x;
             return zoom;
         };
 

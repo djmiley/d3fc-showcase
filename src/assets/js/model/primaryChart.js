@@ -2,10 +2,12 @@
     'use strict';
 
     sc.model.primaryChart = function(initialProduct) {
+
         var model = {
             data: [],
             trackingLatest: true,
             viewDomain: [],
+            padding: 24 * 60 * 60 / 2,
             selectorsChanged: true
         };
 
@@ -18,7 +20,10 @@
             }
         });
 
-        var _series = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
+        var candlestick = sc.series.candlestick();
+        candlestick.isPadded = true;
+
+        var _series = sc.menu.option('Candlestick', 'candlestick', candlestick);
         Object.defineProperty(model, 'series', {
             get: function() { return _series; },
             set: function(newValue) {

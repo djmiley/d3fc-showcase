@@ -5,6 +5,7 @@
         var dispatch = d3.dispatch(sc.event.viewChange);
         var xScale = fc.scale.dateTime();
         var yScale = d3.scale.linear();
+        var padding = 0;
         var trackingLatest = true;
         var yAxisWidth = 60;
 
@@ -28,6 +29,7 @@
 
                 var zoom = sc.behavior.zoom(zoomWidth)
                     .scale(xScale)
+                    .padding(padding)
                     .trackingLatest(trackingLatest)
                     .on('zoom', function(domain) {
                         dispatch[sc.event.viewChange](domain);
@@ -38,6 +40,14 @@
                     .call(zoom);
             });
         }
+
+        secondary.padding = function(x) {
+            if (!arguments.length) {
+                return padding;
+            }
+            padding = x;
+            return secondary;
+        };
 
         secondary.trackingLatest = function(x) {
             if (!arguments.length) {

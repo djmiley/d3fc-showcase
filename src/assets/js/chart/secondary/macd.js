@@ -32,6 +32,7 @@
             var maxYExtent = d3.max(model.data, function(d) { return Math.abs(d.macd.macd); });
             var paddedYExtent = sc.util.domain.padYDomain([-maxYExtent, maxYExtent], 0.04);
             chart.trackingLatest(model.trackingLatest)
+                .padding(model.padding)
                 .xDomain(model.viewDomain)
                 .yDomain(paddedYExtent);
 

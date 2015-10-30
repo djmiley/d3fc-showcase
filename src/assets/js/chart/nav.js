@@ -87,7 +87,11 @@
 
             var brushHide = false;
 
-            navChart.xDomain(fc.util.extent().fields('date')(model.data))
+            var xExtent = fc.util.extent().fields('date')(model.data);
+            var paddedXExtent = model.padding ? sc.util.domain.padTimeExtent(xExtent,
+                model.data, model.padding) : xExtent;
+
+            navChart.xDomain(paddedXExtent)
                 .yDomain(yExtent);
 
             brush.on('brush', function() {
@@ -103,7 +107,10 @@
                 setHide(selection, brushHide);
 
                 if (brush.extent()[0][0] - brush.extent()[1][0] !== 0) {
-                    dispatch[sc.event.viewChange]([brush.extent()[0][0], brush.extent()[1][0]]);
+                    var domain = [brush.extent()[0][0], brush.extent()[1][0]];
+                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain,
+                        model.data, -model.padding) : domain;
+                    dispatch[sc.event.viewChange](unpaddedDomain);
                 }
             })
             .on('brushend', function() {
@@ -111,8 +118,11 @@
                 setHide(selection, brushHide);
 
                 if (brush.extent()[0][0] - brush.extent()[1][0] === 0) {
-                    dispatch[sc.event.viewChange](sc.util.domain.centerOnDate(viewScale.domain(),
-                        model.data, brush.extent()[0][0]));
+                    var domain = sc.util.domain.centerOnDate(viewScale.domain(),
+                        model.data, brush.extent()[0][0]);
+                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain,
+                        model.data, -model.padding) : domain;
+                    dispatch[sc.event.viewChange](unpaddedDomain);
                 }
             });
 

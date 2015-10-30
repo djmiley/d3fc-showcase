@@ -238,6 +238,7 @@
             var zoom = sc.behavior.zoom(zoomWidth)
                 .scale(xScale)
                 .trackingLatest(model.trackingLatest)
+                .padding(model.padding)
                 .on('zoom', function(domain) {
                     dispatch[sc.event.viewChange](domain);
                 });
