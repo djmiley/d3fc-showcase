@@ -20,10 +20,7 @@
             }
         });
 
-        var candlestick = sc.series.candlestick();
-        candlestick.isPadded = true;
-
-        var _series = sc.menu.option('Candlestick', 'candlestick', candlestick);
+        var _series = sc.menu.option('Candlestick', 'candlestick', sc.series.candlestick());
         Object.defineProperty(model, 'series', {
             get: function() { return _series; },
             set: function(newValue) {

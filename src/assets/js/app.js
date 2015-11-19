@@ -141,9 +141,7 @@
             secondaryChartModel.trackingLatest = trackingLatest;
             navModel.trackingLatest = trackingLatest;
 
-            var viewDomain = primaryChartModel.series.option.isPadded ?
-                sc.util.domain.padTimeExtent(unpaddedDomain, primaryChartModel.data, xAxisModel.period.seconds / 2) :
-                unpaddedDomain;
+            var viewDomain = sc.util.domain.padTimeExtent(unpaddedDomain, xAxisModel.period.seconds / 2);
             primaryChartModel.viewDomain = viewDomain;
             secondaryChartModel.viewDomain = viewDomain;
             xAxisModel.viewDomain = viewDomain;
@@ -182,6 +180,12 @@
             headMenuModel.selectedPeriod = period;
             xAxisModel.period = period;
             legendModel.period = period;
+
+            // Update padding, which is half a period
+            primaryChartModel.padding = period.seconds / 2;
+            secondaryChartModel.padding = period.seconds / 2;
+            xAxisModel.padding = period.seconds / 2;
+            navModel.padding = period.seconds / 2;
         }
 
         function initialisePrimaryChart() {
@@ -257,17 +261,9 @@
         function initialiseSideMenu() {
             return sc.menu.side()
                 .on(sc.event.primaryChartSeriesChange, function(series) {
-                    var unpaddedDomain = primaryChartModel.series.option.isPadded ?
-                        sc.util.domain.padTimeExtent(primaryChartModel.viewDomain,
-                        primaryChartModel.data, -xAxisModel.period.seconds / 2) :
-                        primaryChartModel.viewDomain;
                     primaryChartModel.series = series;
-                    primaryChartModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
-                    secondaryChartModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
-                    xAxisModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
-                    navModel.padding = series.option.isPadded ? xAxisModel.period.seconds  / 2 : 0;
                     selectOption(series, sideMenuModel.seriesOptions);
-                    onViewChange(unpaddedDomain);
+                    render();
                 })
                 .on(sc.event.primaryChartYValueAccessorChange, function(yValueAccessor) {
                     primaryChartModel.yValueAccessor = yValueAccessor;

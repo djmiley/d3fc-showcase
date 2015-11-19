@@ -45,10 +45,7 @@
                 .on('zoom', function() {
                     var xExtent = fc.util.extent()
                         .fields('date')(selection.datum().data);
-                    var paddedXExtent = padding ? sc.util.domain.padTimeExtent(xExtent,
-                        selection.datum().data, padding) : xExtent;
-
-                    var width = selection.attr('layout-width');
+                    var paddedXExtent = padding ? sc.util.domain.padTimeExtent(xExtent, padding) : xExtent;
 
                     var min = scale(paddedXExtent[0]);
                     var max = scale(paddedXExtent[1]);
@@ -62,7 +59,7 @@
 
                     if ((panned && allowPan) || (zoomed && allowZoom)) {
                         var unpaddedDomain = padding ? sc.util.domain.padTimeExtent(scale.domain(),
-                            selection.datum().data, -padding) : scale.domain();
+                            -padding) : scale.domain();
                         if (maxDomainViewed) {
                             unpaddedDomain = fc.util.extent()
                                 .fields('date')(selection.datum().data);

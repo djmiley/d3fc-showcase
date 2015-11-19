@@ -88,8 +88,7 @@
             var brushHide = false;
 
             var xExtent = fc.util.extent().fields('date')(model.data);
-            var paddedXExtent = model.padding ? sc.util.domain.padTimeExtent(xExtent,
-                model.data, model.padding) : xExtent;
+            var paddedXExtent = model.padding ? sc.util.domain.padTimeExtent(xExtent, model.padding) : xExtent;
 
             navChart.xDomain(paddedXExtent)
                 .yDomain(yExtent);
@@ -108,8 +107,7 @@
 
                 if (brush.extent()[0][0] - brush.extent()[1][0] !== 0) {
                     var domain = [brush.extent()[0][0], brush.extent()[1][0]];
-                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain,
-                        model.data, -model.padding) : domain;
+                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain, -model.padding) : domain;
                     dispatch[sc.event.viewChange](unpaddedDomain);
                 }
             })
@@ -120,8 +118,7 @@
                 if (brush.extent()[0][0] - brush.extent()[1][0] === 0) {
                     var domain = sc.util.domain.centerOnDate(viewScale.domain(),
                         model.data, brush.extent()[0][0]);
-                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain,
-                        model.data, -model.padding) : domain;
+                    var unpaddedDomain = model.padding ? sc.util.domain.padTimeExtent(domain, -model.padding) : domain;
                     dispatch[sc.event.viewChange](unpaddedDomain);
                 }
             });
