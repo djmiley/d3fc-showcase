@@ -207,6 +207,11 @@
                                 primaryChartModel.viewDomain,
                                 primaryChartModel.data);
                             onViewChange(newDomain);
+                        } else {
+                            var shift = headMenuModel.selectedPeriod.seconds;
+                            var shiftedDomain = [d3.time.second.offset(primaryChartModel.viewDomain[0], shift),
+                                d3.time.second.offset(primaryChartModel.viewDomain[1], shift)];
+                            onViewChange(shiftedDomain);
                         }
                     }
                 })
