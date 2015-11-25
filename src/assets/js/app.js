@@ -57,11 +57,11 @@
             periods: [minute1, minute5, hour1]
         });
 
-        var primaryChartModel = sc.model.primaryChart(generated);
-        var secondaryChartModel = sc.model.secondaryChart(generated);
-        var sideMenuModel = sc.model.menu.side();
+        var primaryChartModel = sc.model.primaryChart(generated, day1);
+        var secondaryChartModel = sc.model.secondaryChart(generated, day1);
+        var sideMenuModel = sc.model.menu.side(day1);
         var xAxisModel = sc.model.xAxis(day1);
-        var navModel = sc.model.nav();
+        var navModel = sc.model.nav(day1);
         var headMenuModel = sc.model.headMenu([generated, bitcoin], generated, day1);
         var legendModel = sc.model.legend(generated, day1);
 
@@ -141,7 +141,7 @@
             secondaryChartModel.trackingLatest = trackingLatest;
             navModel.trackingLatest = trackingLatest;
 
-            var viewDomain = sc.util.domain.padTimeExtent(unpaddedDomain, xAxisModel.period.seconds / 2);
+            var viewDomain = sc.util.domain.padTimeExtent(unpaddedDomain, primaryChartModel.padding);
             primaryChartModel.viewDomain = viewDomain;
             secondaryChartModel.viewDomain = viewDomain;
             xAxisModel.viewDomain = viewDomain;
@@ -180,12 +180,13 @@
             headMenuModel.selectedPeriod = period;
             xAxisModel.period = period;
             legendModel.period = period;
+        }
 
-            // Update padding, which is half a period
-            primaryChartModel.padding = period.seconds / 2;
-            secondaryChartModel.padding = period.seconds / 2;
-            xAxisModel.padding = period.seconds / 2;
-            navModel.padding = period.seconds / 2;
+        function updateModelExtentPadding(padding) {
+            primaryChartModel.padding = padding;
+            secondaryChartModel.padding = padding;
+            xAxisModel.padding = padding;
+            navModel.padding = padding;
         }
 
         function initialisePrimaryChart() {
@@ -233,6 +234,7 @@
                 .on(sc.event.dataProductChange, function(product) {
                     updateModelSelectedProduct(product.option);
                     updateModelSelectedPeriod(product.option.periods[0]);
+                    updateModelExtentPadding(product.option.periods[0].seconds / 2);
                     if (product.option === bitcoin) {
                         dataInterface(product.option.periods[0].seconds);
                     } else if (product.option === generated) {
@@ -242,6 +244,7 @@
                 })
                 .on(sc.event.dataPeriodChange, function(period) {
                     updateModelSelectedPeriod(period.option);
+                    updateModelExtentPadding(period.option.seconds / 2);
                     dataInterface(period.option.seconds);
                     render();
                 })

@@ -1,13 +1,13 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.model.primaryChart = function(initialProduct) {
+    sc.model.primaryChart = function(initialProduct, initialPeriod) {
 
         var model = {
             data: [],
             trackingLatest: true,
             viewDomain: [],
-            padding: 24 * 60 * 60 / 2,
+            padding: initialPeriod.seconds / 2,
             selectorsChanged: true
         };
 

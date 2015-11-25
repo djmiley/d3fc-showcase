@@ -1,11 +1,11 @@
 (function(d3, fc, sc) {
     'use strict';
 
-    sc.model.secondaryChart = function(initialProduct) {
+    sc.model.secondaryChart = function(initialProduct, initialPeriod) {
         return {
             data: [],
             viewDomain: [],
-            padding: 24 * 60 * 60 / 2,
+            padding: initialPeriod.seconds / 2,
             trackingLatest: true,
             product: initialProduct
         };
