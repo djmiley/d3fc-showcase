@@ -201,13 +201,15 @@
                         console.log('Error loading data from coinbase websocket: ' +
                         socketEvent.type + ' ' + socketEvent.code);
                     } else if (socketEvent.type === 'message') {
+                        var newDataPoint = data[data.length - 1].date.getTime() !==
+                            primaryChartModel.data[primaryChartModel.data.length - 1].date.getTime();
                         updateModelData(data);
                         if (primaryChartModel.trackingLatest) {
                             var newDomain = sc.util.domain.moveToLatest(
                                 primaryChartModel.viewDomain,
                                 primaryChartModel.data);
                             onViewChange(newDomain);
-                        } else {
+                        } else if (newDataPoint) {
                             var shift = headMenuModel.selectedPeriod.seconds;
                             var shiftedDomain = [d3.time.second.offset(primaryChartModel.viewDomain[0], shift),
                                 d3.time.second.offset(primaryChartModel.viewDomain[1], shift)];
