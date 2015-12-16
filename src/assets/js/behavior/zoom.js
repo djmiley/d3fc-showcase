@@ -11,6 +11,7 @@ export default function(width) {
 
     var allowPan = true;
     var allowZoom = true;
+    var padding = 0;
     var trackingLatest = true;
 
     function controlPan(zoomExtent) {
@@ -41,40 +42,48 @@ export default function(width) {
 
     function zoom(selection) {
 
-        var xExtent = fc.util.extent()
-          .fields('date')(selection.datum().data);
-
         zoomBehavior.x(scale)
-          .on('zoom', function() {
-              var min = scale(xExtent[0]);
-              var max = scale(xExtent[1]);
+            .on('zoom', function() {
+                var xExtent = fc.util.extent()
+                    .fields('date')(selection.datum().data);
 
-              var maxDomainViewed = controlZoom([min, max - width]);
-              var panningRestriction = controlPan([min, max - width]);
-              translateXZoom(panningRestriction);
+                var paddedXExtent = fc.util.extent()
+                    .fields(fc.util.fn.identity)
+                    .padUnit('domain')
+                    .pad(padding)(xExtent);
 
-              var panned = (zoomBehavior.scale() === 1);
-              var zoomed = (zoomBehavior.scale() !== 1);
+                var min = scale(paddedXExtent[0]);
+                var max = scale(paddedXExtent[1]);
 
-              if ((panned && allowPan) || (zoomed && allowZoom)) {
-                  var domain = scale.domain();
-                  if (maxDomainViewed) {
-                      domain = xExtent;
-                  } else if (zoomed && trackingLatest) {
-                      domain = util.domain.moveToLatest(domain, selection.datum().data);
-                  }
+                var maxDomainViewed = controlZoom([min, max - width]);
+                var panningRestriction = controlPan([min, max - width]);
+                translateXZoom(panningRestriction);
 
-                  if (domain[0].getTime() !== domain[1].getTime()) {
-                      dispatch.zoom(domain);
-                  } else {
-                      // Ensure the user can't zoom-in infinitely, causing the chart to fail to render
-                      // #168, #411
-                      resetBehaviour();
-                  }
-              } else {
-                  resetBehaviour();
-              }
-          });
+                var panned = (zoomBehavior.scale() === 1);
+                var zoomed = (zoomBehavior.scale() !== 1);
+
+                if ((panned && allowPan) || (zoomed && allowZoom)) {
+                    var unpaddedDomain = fc.util.extent()
+                        .fields(fc.util.fn.identity)
+                        .padUnit('domain')
+                        .pad(-padding)(scale.domain());
+                    if (maxDomainViewed) {
+                        unpaddedDomain = xExtent;
+                    } else if (zoomed && trackingLatest) {
+                        unpaddedDomain = util.domain.moveToLatest(unpaddedDomain, selection.datum().data);
+                    }
+
+                    if (unpaddedDomain[0].getTime() !== unpaddedDomain[1].getTime()) {
+                        dispatch.zoom(unpaddedDomain);
+                    } else {
+                        // Ensure the user can't zoom-in infinitely, causing the chart to fail to render
+                        // #168, #411
+                        resetBehaviour();
+                    }
+                } else {
+                    resetBehaviour();
+                }
+            });
 
         selection.call(zoomBehavior);
     }
@@ -92,6 +101,14 @@ export default function(width) {
             return allowZoom;
         }
         allowZoom = x;
+        return zoom;
+    };
+
+    zoom.padding = function(x) {
+        if (!arguments.length) {
+            return padding;
+        }
+        padding = x;
         return zoom;
     };
 

@@ -214,6 +214,7 @@ export default function() {
 
         var zoom = zoomBehavior(zoomWidth)
           .scale(xScale)
+          .padding(model.padding)
           .trackingLatest(model.trackingLatest)
           .on('zoom', function(domain) {
               dispatch[event.viewChange](domain);

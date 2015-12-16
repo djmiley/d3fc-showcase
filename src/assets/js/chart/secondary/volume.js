@@ -27,6 +27,7 @@ export default function() {
             }
             chart.yTickFormat(model.product.volumeFormat)
                 .trackingLatest(model.trackingLatest)
+                .padding(model.padding)
                 .xDomain(model.viewDomain)
                 .yDomain(paddedYExtent);
 

@@ -178,20 +178,25 @@ export default function() {
         model.notificationMessages.messages.unshift(messageModel(message));
     }
 
-    function onViewChange(domain) {
-        var viewDomain = [domain[0], domain[1]];
+    function onViewChange(unpaddedDomain) {
+        var trackingLatest = util.domain.trackingLatestData(
+            unpaddedDomain,
+            model.primaryChart.data);
+
+        model.primaryChart.trackingLatest = trackingLatest;
+        model.secondaryChart.trackingLatest = trackingLatest;
+        model.nav.trackingLatest = trackingLatest;
+        model.navReset.trackingLatest = trackingLatest;
+
+        var viewDomain = fc.util.extent()
+            .fields(fc.util.fn.identity)
+            .padUnit('domain')
+            .pad(model.primaryChart.padding)(unpaddedDomain);
         model.primaryChart.viewDomain = viewDomain;
         model.secondaryChart.viewDomain = viewDomain;
         model.xAxis.viewDomain = viewDomain;
         model.nav.viewDomain = viewDomain;
 
-        var trackingLatest = util.domain.trackingLatestData(
-            model.primaryChart.viewDomain,
-            model.primaryChart.data);
-        model.primaryChart.trackingLatest = trackingLatest;
-        model.secondaryChart.trackingLatest = trackingLatest;
-        model.nav.trackingLatest = trackingLatest;
-        model.navReset.trackingLatest = trackingLatest;
         render();
     }
 
@@ -269,7 +274,15 @@ export default function() {
         loading(true);
         updateModelSelectedProduct(product);
         updateModelSelectedPeriod(product.periods[0]);
+        updateModelExtentPadding(1000 * product.periods[0].seconds / 2);
         _dataInterface(product.periods[0].seconds, product);
+    }
+
+    function updateModelExtentPadding(padding) {
+        model.primaryChart.padding = padding;
+        model.secondaryChart.padding = padding;
+        model.xAxis.padding = padding;
+        model.nav.padding = padding;
     }
 
     function initialisePrimaryChart() {
@@ -337,6 +350,7 @@ export default function() {
             .on(event.dataPeriodChange, function(period) {
                 loading(true);
                 updateModelSelectedPeriod(period.option);
+                updateModelExtentPadding(1000 * period.option.seconds / 2);
                 _dataInterface(period.option.seconds);
                 render();
             })

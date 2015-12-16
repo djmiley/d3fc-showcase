@@ -37,6 +37,7 @@ export default function() {
             .symmetricalAbout(0)
             .pad(0.08)(model.data.map(function(d) { return d.macd; }));
         chart.trackingLatest(model.trackingLatest)
+          .padding(model.padding)
           .xDomain(model.viewDomain)
           .yDomain(paddedYExtent);
 

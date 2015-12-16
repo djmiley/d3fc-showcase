@@ -8,6 +8,7 @@ export default function() {
     var dispatch = d3.dispatch(event.viewChange);
     var xScale = fc.scale.dateTime();
     var yScale = d3.scale.linear();
+    var padding = 0;
     var trackingLatest = true;
     var yAxisWidth = 60;
 
@@ -31,6 +32,7 @@ export default function() {
 
             var zoom = zoomBehavior(zoomWidth)
               .scale(xScale)
+              .padding(padding)
               .trackingLatest(trackingLatest)
               .on('zoom', function(domain) {
                   dispatch[event.viewChange](domain);
@@ -41,6 +43,14 @@ export default function() {
               .call(zoom);
         });
     }
+
+    secondary.padding = function(x) {
+        if (!arguments.length) {
+            return padding;
+        }
+        padding = x;
+        return secondary;
+    };
 
     secondary.trackingLatest = function(x) {
         if (!arguments.length) {

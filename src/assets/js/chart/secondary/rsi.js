@@ -21,6 +21,7 @@ export default function() {
         algorithm(model.data);
 
         chart.trackingLatest(model.trackingLatest)
+          .padding(model.padding)
           .xDomain(model.viewDomain)
           .yDomain([0, 100]);
 

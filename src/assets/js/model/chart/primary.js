@@ -2,11 +2,12 @@ import candlestickSeries from '../../series/candlestick';
 import option from '../menu/option';
 import util from '../../util/util';
 
-export default function(initialProduct) {
+export default function(initialProduct, initialPeriod) {
     var model = {
         data: [],
         trackingLatest: true,
         viewDomain: [],
+        padding: 1000 * initialPeriod.seconds / 2,
         selectorsChanged: true
     };
 

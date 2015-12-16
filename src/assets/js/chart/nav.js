@@ -142,7 +142,12 @@ export default function() {
 
         var brushHide = false;
 
-        navChart.xDomain(fc.util.extent().fields('date')(model.data))
+        var paddedDomain = fc.util.extent()
+            .fields('date')
+            .padUnit('domain')
+            .pad(model.padding)(model.data);
+
+        navChart.xDomain(paddedDomain)
           .yDomain(yExtent);
 
         brush.on('brush', function() {
@@ -151,15 +156,25 @@ export default function() {
             // Hide the bar if the extent is empty
             setHide(selection, brushExtentIsEmpty);
             if (!brushExtentIsEmpty) {
-                dispatch[event.viewChange]([brush.extent()[0][0], brush.extent()[1][0]]);
+                var domain = [brush.extent()[0][0], brush.extent()[1][0]];
+                var unpaddedDomain = fc.util.extent()
+                    .fields(fc.util.fn.identity)
+                    .padUnit('domain')
+                    .pad(-model.padding)(domain);
+                dispatch[event.viewChange](unpaddedDomain);
             }
         })
             .on('brushend', function() {
                 var brushExtentIsEmpty = xEmpty(brush);
                 setHide(selection, false);
                 if (brushExtentIsEmpty) {
-                    dispatch[event.viewChange](util.domain.centerOnDate(viewScale.domain(),
-                        model.data, brush.extent()[0][0]));
+                    var domain = util.domain.centerOnDate(viewScale.domain(),
+                        model.data, brush.extent()[0][0]);
+                    var unpaddedDomain = fc.util.extent()
+                        .fields(fc.util.fn.identity)
+                        .padUnit('domain')
+                        .pad(-model.padding)(domain);
+                    dispatch[event.viewChange](unpaddedDomain);
                 }
             });
 
