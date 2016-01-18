@@ -171,7 +171,11 @@ export default function() {
             selectorsChanged(model);
         }
 
-        primaryChart.xDomain(model.viewDomain);
+        var paddedDomain = fc.util.extent()
+            .fields(fc.util.fn.identity)
+            .padUnit('domain')
+            .pad(model.padding)(model.viewDomain);
+        primaryChart.xDomain(paddedDomain);
 
         crosshair.snap(fc.util.seriesPointSnapXOnly(currentSeries.option, model.data));
         updateCrosshairDecorate(model.data);

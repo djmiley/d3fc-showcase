@@ -178,24 +178,19 @@ export default function() {
         model.notificationMessages.messages.unshift(messageModel(message));
     }
 
-    function onViewChange(unpaddedDomain) {
-        var trackingLatest = util.domain.trackingLatestData(
-            unpaddedDomain,
-            model.primaryChart.data);
+    function onViewChange(domain) {
+        model.primaryChart.viewDomain = domain;
+        model.secondaryChart.viewDomain = domain;
+        model.xAxis.viewDomain = domain;
+        model.nav.viewDomain = domain;
 
+        var trackingLatest = util.domain.trackingLatestData(
+            domain,
+            model.primaryChart.data);
         model.primaryChart.trackingLatest = trackingLatest;
         model.secondaryChart.trackingLatest = trackingLatest;
         model.nav.trackingLatest = trackingLatest;
         model.navReset.trackingLatest = trackingLatest;
-
-        var viewDomain = fc.util.extent()
-            .fields(fc.util.fn.identity)
-            .padUnit('domain')
-            .pad(model.primaryChart.padding)(unpaddedDomain);
-        model.primaryChart.viewDomain = viewDomain;
-        model.secondaryChart.viewDomain = viewDomain;
-        model.xAxis.viewDomain = viewDomain;
-        model.nav.viewDomain = viewDomain;
 
         render();
     }

@@ -25,10 +25,15 @@ export default function() {
             if (paddedYExtent[0] < 0) {
                 paddedYExtent[0] = 0;
             }
+
+            var paddedDomain = fc.util.extent()
+                .fields(fc.util.fn.identity)
+                .padUnit('domain')
+                .pad(model.padding)(model.viewDomain);
             chart.yTickFormat(model.product.volumeFormat)
                 .trackingLatest(model.trackingLatest)
                 .padding(model.padding)
-                .xDomain(model.viewDomain)
+                .xDomain(paddedDomain)
                 .yDomain(paddedYExtent);
 
             selection.datum(model.data)

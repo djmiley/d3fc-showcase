@@ -132,7 +132,11 @@ export default function() {
 
         createDefs(selection, model.data);
 
-        viewScale.domain(model.viewDomain);
+        var paddedViewDomain = fc.util.extent()
+            .fields(fc.util.fn.identity)
+            .padUnit('domain')
+            .pad(model.padding)(model.viewDomain);
+        viewScale.domain(paddedViewDomain);
 
         var filteredData = util.domain.filterDataInDateRange(
           fc.util.extent().fields('date')(model.data),

@@ -20,9 +20,13 @@ export default function() {
         var model = selection.datum();
         algorithm(model.data);
 
+        var paddedDomain = fc.util.extent()
+            .fields(fc.util.fn.identity)
+            .padUnit('domain')
+            .pad(model.padding)(model.viewDomain);
         chart.trackingLatest(model.trackingLatest)
           .padding(model.padding)
-          .xDomain(model.viewDomain)
+          .xDomain(paddedDomain)
           .yDomain([0, 100]);
 
         selection.datum(model.data)
